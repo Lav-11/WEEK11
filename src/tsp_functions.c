@@ -25,6 +25,18 @@ double dist(int i, int j, instance *inst) {
     return (double)(sqrt(dx * dx + dy * dy) + 0.499999999); // Rounding to integer distance
 }
 
+// Funcion that calculates a matrix that stores the distance between each pair of nodes
+void calculate_distances(instance *inst) {
+    inst->distances = (double *) calloc(inst->nnodes * inst->nnodes, sizeof(double));
+    if (inst->distances == NULL) print_error("Memory allocation failed");
+
+    for (int i = 0; i < inst->nnodes -1; i++) {
+        for (int j = 0; j < inst->nnodes -1; j++) {
+            inst->distances[i * inst->nnodes + j] = dist(i, j, inst);
+        }
+    }
+}
+
 // Function that create a simple solution for the TSP by visiting nodes in order
 void simple_solution(instance *inst) {
     // Allocate memory for the best solution

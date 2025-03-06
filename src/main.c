@@ -21,9 +21,10 @@ int main(int argc, char **argv)
 
 	parse_command_line(argc,argv, &inst);  
 	read_input(&inst);  
-	double* current_solution = nearest_neighbor(&inst);
-	double current_solution_cost = calculate_tour_cost(current_solution, &inst);
-	fprintf(stdout, "Nearest neighbor tour cost: %.2f\n", current_solution_cost);
+	//calculate_distances(&inst);
+	//double* current_solution = nearest_neighbor(&inst);
+	//double current_solution_cost = calculate_tour_cost(current_solution, &inst);
+	//fprintf(stdout, "Nearest neighbor tour cost: %.2f\n", current_solution_cost);
 	export_solution_for_gnuplot("../data/solution.dat", &inst);
 	png_solution_for_gnuplot("../data/solution.dat", "../data/solution.png");
 
