@@ -24,11 +24,11 @@ typedef struct {
     int nnodes;                     // Number of nodes in the TSP problem
     double *xcoord;                 // Array of x coordinates for each node
     double *ycoord;                 // Array of y coordinates for each node
-    int integer_costs;              // Flag to indicate if distances are integers (1) or floating-point (0)
     int seed;                       // Seed used to generate the random instance (if applicable)
     double timelimit;				// overall time limit, in sec.s
     char input_file[1000];          // The name of the input file (for debugging or reference)
     double *best_sol;               // Best known solution (tour) for the TSP instance
+    double best_sol_cost;           // Cost of the best known solution
 } instance;
 
 // Function prototypes
@@ -47,5 +47,11 @@ void export_solution_for_gnuplot(const char *filename, const instance *inst);
 
 // Function to save the solution in a PNG file using gnuplot
 void png_solution_for_gnuplot(const char *input_filename, const char *output_filename);
+
+// Function to find the nearest neighbor tour for the TSP
+double* nearest_neighbor(instance *inst);
+
+// Function to calculate the cost of a tour for the TSP instance
+double calculate_tour_cost(const double *tour,  instance *inst);
 
 #endif // TSP_FUNCTIONS_H

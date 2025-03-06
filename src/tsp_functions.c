@@ -22,9 +22,7 @@ double random01(unsigned int *seed) {
 double dist(int i, int j, instance *inst) {
     double dx = inst->xcoord[i] - inst->xcoord[j];  // Calculate difference in x-coordinates
     double dy = inst->ycoord[i] - inst->ycoord[j];  // Calculate difference in y-coordinates
-    if (!inst->integer_costs)
-        return sqrt(dx * dx + dy * dy);  // Return the Euclidean distance (non-integer)
-    return (int)(sqrt(dx * dx + dy * dy) + 0.499999999); // Rounding to integer distance
+    return (double)(sqrt(dx * dx + dy * dy) + 0.499999999); // Rounding to integer distance
 }
 
 // Function that create a simple solution for the TSP by visiting nodes in order
@@ -74,3 +72,51 @@ void png_solution_for_gnuplot(const char *dat_filename, const char *png_filename
         perror("Error executing gnuplot command");
     }
 }
+
+// Function to find the nearest neighbor tour for the TSP
+double* nearest_neighbor(instance *inst) {
+    double *tour = (double *) calloc(inst->nnodes, sizeof(double));  // Allocate memory for the tour
+    bool *visited = calloc(inst->nnodes, sizeof(bool));  // Array to track visited nodes
+    if (!visited) print_error("Memory allocation error for visited");
+
+    int current = 0;  // Start at the first node
+
+    tour[0] = current + 1;  // First node in the tour
+    visited[current] = true;
+    // For each node, find the nearest unvisited neighbor
+    for (int i = 1; i < inst->nnodes; i++) {
+        double minDist = 1e20;
+        int nextNode = -1;
+
+        // Search for the nearest neighbor
+        for (int j = 0; j < inst->nnodes; j++) {
+            if (!visited[j]) {
+                double d = dist(current, j, inst);  // Calculate distance
+                if (d < minDist) {
+                    minDist = d;
+                    nextNode = j;
+                }
+            }
+        }
+
+        if (nextNode == -1) print_error("Error constructing the tour");
+
+        tour[i] = (double)nextNode + 1;  // Assign the next node to the tour
+        visited[nextNode] = true;  // Mark it as visited
+        current = nextNode;  // Move to the next node
+    }
+
+    free(visited);  // Free the visited array
+    return tour;  // Return the tour
+}
+
+//Function to calculate instance's best solution cost
+double calculate_tour_cost(const double *tour, instance *inst) {
+    double cost = 0.0;
+    for (int i = 0; i < inst->nnodes; i++) {
+        int j = (i + 1) % inst->nnodes;  // Next node in the tour
+        cost += dist(tour[i] - 1, tour[j] - 1, inst);  // Calculate the distance
+    }
+    return cost;
+}
+
