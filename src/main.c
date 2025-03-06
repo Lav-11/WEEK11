@@ -97,11 +97,12 @@ void read_input(instance *inst)
 		inst->xcoord = malloc(inst->nnodes * sizeof(double));  // Allocate memory for x-coordinates
 		inst->ycoord = malloc(inst->nnodes * sizeof(double));  // Allocate memory for y-coordinates
 		strncpy(inst->input_file, "randomly generated", 1000);  // Mark as a random instance
-	
+		int seed = inst->seed;  // Random seed
+		srand(seed);  // Initialize the random number generator
 		// Generate random coordinates between 0 and 9999
 		for (int i = 0; i < inst->nnodes; i++) {
-			inst->xcoord[i] = (int)(random01() * 10000);  // Random x-coordinate
-			inst->ycoord[i] = (int)(random01() * 10000);  // Random y-coordinate
+			inst->xcoord[i] = (double)((double)rand() / RAND_MAX)*10000;  // Random x-coordinate
+			inst->ycoord[i] = (double)((double)rand() / RAND_MAX)*10000;  // Random y-coordinate
 		}
 	
 	}		
