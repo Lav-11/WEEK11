@@ -52,10 +52,19 @@ void export_solution_for_gnuplot(const char *filename, const instance *inst);
 // Function to save the solution in a PNG file using gnuplot
 void png_solution_for_gnuplot(const char *input_filename, const char *output_filename);
 
+// Function to check if the current solution is better than the best solution found so far
+void check_solution(double* tour, double cur_sol_cost, instance *inst);
+
+// Function to update the best solution found so far
+void update_best_solution(double* tour, double cur_sol_cost, instance *inst);
+
 // Function to find the nearest neighbor tour for the TSP
-double* nearest_neighbor(instance *inst);
+void nearest_neighbor(instance *inst);
 
 // Function to calculate the cost of a tour for the TSP instance
 double calculate_tour_cost(const double *tour,  instance *inst);
+
+// Function to implement the 2-opt heuristic for the TSP
+void two_opt(instance *inst);
 
 #endif // TSP_FUNCTIONS_H

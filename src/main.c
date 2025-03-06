@@ -21,13 +21,13 @@ int main(int argc, char **argv)
 
 	parse_command_line(argc,argv, &inst);  
 	read_input(&inst);  
-	//calculate_distances(&inst);
-	//double* current_solution = nearest_neighbor(&inst);
-	//double current_solution_cost = calculate_tour_cost(current_solution, &inst);
-	//fprintf(stdout, "Nearest neighbor tour cost: %.2f\n", current_solution_cost);
+	calculate_distances(&inst);
+	nearest_neighbor(&inst);
 	export_solution_for_gnuplot("../data/solution.dat", &inst);
 	png_solution_for_gnuplot("../data/solution.dat", "../data/solution.png");
-
+	two_opt(&inst);
+	export_solution_for_gnuplot("../data/final_solution.dat", &inst);
+	png_solution_for_gnuplot("../data/final_solution.dat", "../data/final_solution.png");
     double t2 = second(); 
 
 	if ( VERBOSE >= 1 )   
@@ -122,7 +122,7 @@ void parse_command_line(int argc, char** argv, instance *inst)
 	strcpy(inst->input_file, "NULL");
 	inst->seed = 0; 
 	inst->nnodes = -1;
-	inst->timelimit = 1e+20; 
+	inst->timelimit = 60; 
 	inst->best_sol_cost = 1e+20;
 	int got_input_file = 0;
 
