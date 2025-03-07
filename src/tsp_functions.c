@@ -23,30 +23,20 @@ double random01(unsigned int *seed) {
 double dist(int i, int j, instance *inst) {
     double dx = inst->xcoord[i] - inst->xcoord[j];  // Calculate difference in x-coordinates
     double dy = inst->ycoord[i] - inst->ycoord[j];  // Calculate difference in y-coordinates
-    return (double)(sqrt(dx * dx + dy * dy)); // Rounding to integer distance
+    return (double)(sqrt(dx * dx + dy * dy));
 }
 
-// Funcion that calculates a matrix that stores the distance between each pair of nodes
+// Function that calculates a matrix that stores the distance between each pair of nodes
 void calculate_distances(instance *inst) {
     inst->distances = (double *) calloc(inst->nnodes * inst->nnodes, sizeof(double));
-    if (inst->distances == NULL) print_error("Memory allocation failed");
-
+    if (inst->distances == NULL){
+        print_error("Memory allocation failed");
+        return;
+    }
     for (int i = 0; i < inst->nnodes; i++) {
         for (int j = 0; j < inst->nnodes; j++) {
             inst->distances[i * inst->nnodes + j] = dist(i, j, inst);
         }
-    }
-}
-
-// Function that create a simple solution for the TSP by visiting nodes in order
-void simple_solution(instance *inst) {
-    // Allocate memory for the best solution
-    inst->best_sol = (double *) calloc(inst->nnodes, sizeof(double));
-    if (inst->best_sol == NULL) print_error("Memory allocation failed");
-
-    // Initialize the best solution with the order of nodes
-    for (int i = 0; i < inst->nnodes; i++) {
-        inst->best_sol[i] = i+1;
     }
 }
 
@@ -100,9 +90,11 @@ double calculate_tour_cost(const double *tour, instance *inst) {
 void check_solution(double* tour, double cur_sol_cost, instance *inst) {
     double cost = inst->best_sol_cost;  // Get the best solution cost
     if (cur_sol_cost < cost) {  
+        if (VERBOSE >= 50){
         printf("New best solution found\n");  // Print a message
         printf("New cost: %.10f\n", cur_sol_cost);  // Print the new cost
-        update_best_solution(tour, cur_sol_cost, inst);  // Update the best solution
+        }
+    update_best_solution(tour, cur_sol_cost, inst);  // Update the best solution
     }
 }
 
@@ -115,14 +107,21 @@ void update_best_solution(double* tour, double cur_sol_cost, instance *inst) {
 // Function to find the nearest neighbor tour for the TSP
 void nearest_neighbor(instance *inst) {
     inst->best_sol = (double *) calloc(inst->nnodes, sizeof(double));
-    if (inst->best_sol == NULL) print_error("Memory allocation failed");
+    if (inst->best_sol == NULL){
+        print_error("Memory allocation failed");
+        return;
+    }
+    double t1 = second();  // Start time
+
     for (int start = 0; start < inst->nnodes; start++) {
         double *tour = (double *) calloc(inst->nnodes, sizeof(double));  // Allocate memory for the tour
         bool *visited = calloc(inst->nnodes, sizeof(bool));  // Array to track visited nodes
-        if (!visited) print_error("Memory allocation error for visited");
+        if (!visited){
+            print_error("Memory allocation error for visited");
+            return;
+        } 
 
         int current = start;  // Start at the current node
-
         tour[0] = current + 1;  // First node in the tour
         visited[current] = true;
         // For each node, find the nearest unvisited neighbor
@@ -151,6 +150,19 @@ void nearest_neighbor(instance *inst) {
         double cur_sol_cost = calculate_tour_cost(tour, inst);  // Calculate the tour cost
         check_solution(tour, cur_sol_cost, inst);  // Check if this is the best solution
 
+        // Update time left
+        double t2 = second();
+        inst->time_left -= (t2 - t1);
+        t1 = t2;
+
+        // Check if the time limit has been reached
+        if (inst->time_left <= 0){
+            if (VERBOSE >= 50) printf("Time limit reached\n");            
+            free(tour);  // Free the tour array
+            free(visited);  // Free the visited array
+            return;
+        }
+
         free(tour);  // Free the tour array
         free(visited);  // Free the visited array
     }
@@ -158,36 +170,39 @@ void nearest_neighbor(instance *inst) {
 
 // Function to implement 2-opt heuristic for TSP that uses instance's best solution
 void two_opt(instance *inst) {
-    double *tour = (double *) calloc(inst->nnodes, sizeof(double));  // Allocate memory for the tour
-    if (tour == NULL) print_error("Memory allocation failed");
+    // Check if the time limit has already been reached
+    if (inst->time_left <= 0){
+        if (VERBOSE >= 70) printf("Time limit reached before starting 2-opt\n");
+        return;
+    }
 
+    double *tour = (double *) calloc(inst->nnodes, sizeof(double));  // Allocate memory for the tour
+    if (tour == NULL){
+        print_error("Memory allocation failed");
+        return;
+    }
     double t1 = second(); 
-    double t2 = second();
 
     // Initialize the tour with the best solution
     memmove(tour, inst->best_sol, inst->nnodes * sizeof(double));
-    printf("----------------------------------------------------------------------------------------------\n\n");
-    printf("Starting 2-opt heuristic\n");
+
+    if (VERBOSE >= 50){
+        printf("----------------------------------------------------------------------------------------------\n\n");
+        printf("Starting 2-opt heuristic\n");
+        fprintf(stdout, "INITIAL COST: %lf\n", calculate_tour_cost(tour, inst));
+    }
+
     bool improved = true;  // Flag to track if the tour has been improved
-    fprintf(stdout, "INITIAL COST: %lf\n", calculate_tour_cost(tour, inst));
     while(improved) {
         improved = false;
         for (int i = 0; i < inst->nnodes ; i++) {
             for (int j = i; j <= fmin(inst->nnodes-2+i, inst->nnodes-1); j++) {
-                //fprintf(stdout, "i: %d, j: %d\n", i, j);
                 if (abs(i-j) < 1 || abs(i-j-inst->nnodes)<1) continue;  // Skip adjacent nodes
     
                 // Calculate the new tour cost
                 int next_j = (j + 1 == inst->nnodes) ? 0 : j + 1;
                 double cost_delta = inst->distances[(int)(tour[i]-1) * inst->nnodes + (int)(tour[j]-1)] + inst->distances[(int)(tour[i+1]-1) * inst->nnodes + (int)(tour[next_j]-1)] - 
                                     inst->distances[(int)(tour[i]-1) * inst->nnodes + (int)(tour[i+1]-1)] - inst->distances[(int)(tour[j]-1) * inst->nnodes + (int)(tour[next_j]-1)];
-                
-                // fprintf(stdout, "cost delta: %lf\n", cost_delta);
-                // fprintf(stdout, "tour: %lf, tour: %lf\n", tour[i], tour[j]);
-                // fprintf(stdout, "dist i j: %lf\n", inst->distances[(int)(tour[i]-1) * inst->nnodes + (int)(tour[j]-1)]);
-                // fprintf(stdout, "dist i+1 next_j: %lf\n", inst->distances[(int)(tour[i+1]-1) * inst->nnodes + (int)(tour[next_j]-1)]);
-                // fprintf(stdout, "dist i i+1: %lf\n", inst->distances[(int)(tour[i]-1) * inst->nnodes + (int)(tour[i+1]-1)]);
-                // fprintf(stdout, "dist j next_j: %lf\n", inst->distances[(int)(tour[j]-1) * inst->nnodes + (int)(tour[next_j]-1)]);
 
                 // Check if the new tour is better
                 if (cost_delta < -EPSILON) {
@@ -202,17 +217,24 @@ void two_opt(instance *inst) {
                         end--;
                     }
                     improved = true;  // Mark the tour as improved
-                    fprintf(stdout, "MODIFIED COST: %lf\n", calculate_tour_cost(tour, inst));
+                    if (VERBOSE >= 50){
+                        fprintf(stdout, "MODIFIED COST: %lf\n", calculate_tour_cost(tour, inst));
+                    }
                     update_best_solution(tour, calculate_tour_cost(tour, inst), inst);  // Update the best solution
-                    //printf("New best solution found\n");  // Print a message
-                    //printf("New cost: %.10f\n", inst->best_sol_cost);  // Print the new cost            
+
+                    // Update time left
+                    double t2 = second();
+                    inst->time_left -= (t2 - t1);
+                    t1 = t2;
+
+                    // Check if the time limit has been reached
+                    if (inst->time_left <= 0) {
+                        if (VERBOSE >= 50) printf("Time limit reached in two_opt\n");
+                        free(tour);  // Free the tour array
+                        return;
+                    }
                 }
             }
-        }
-        t2 = second();
-        if (t2-t1 > inst->timelimit) {
-            printf("Time limit reached\n");
-            return;
         }
     }
 

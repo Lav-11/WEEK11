@@ -25,8 +25,9 @@ typedef struct {
     double *xcoord;                 // Array of x coordinates for each node
     double *ycoord;                 // Array of y coordinates for each node
     int seed;                       // Seed used to generate the random instance (if applicable)
-    double* distances;                   // Distance matrix for the TSP instance
+    double* distances;              // Distance matrix for the TSP instance
     double timelimit;				// overall time limit, in sec.s
+    double time_left;
     char input_file[1000];          // The name of the input file (for debugging or reference)
     double *best_sol;               // Best known solution (tour) for the TSP instance
     double best_sol_cost;           // Cost of the best known solution
@@ -42,9 +43,6 @@ double dist(int i, int j, instance *inst);
 
 // Function to calculate the distance matrix for the TSP instance
 void calculate_distances(instance *inst);
-
-// Function to generate a simple solution for the TSP by visiting nodes in order
-void simple_solution(instance *inst);
 
 // Function to save the solution in a file that will be used by gnuplot
 void export_solution_for_gnuplot(const char *filename, const instance *inst);
