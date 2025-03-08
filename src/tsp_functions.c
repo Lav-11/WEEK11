@@ -112,7 +112,7 @@ bool check_tour_feasability(const double *tour, instance *inst) {
 void check_solution(double* tour, double cur_sol_cost, instance *inst) {
     double cost = inst->best_sol_cost;  
     if (cur_sol_cost < cost) {  
-        if (VERBOSE >= 50){
+        if (VERBOSE >= 60){
         printf("New best solution found with cost: %.10f\n", cur_sol_cost);  
         }
     update_best_solution(tour, cur_sol_cost, inst);  
@@ -136,6 +136,7 @@ void nearest_neighbor(instance *inst) {
         printf("Starting Nearest Neighbor\n");
     }
     double t1 = second();  // Start time
+    double best_nn_tour_cost = 1e20;  // Initialize the best tour cost for nearest neighbor
 
     for (int start = 0; start < inst->nnodes; start++) {
         double *tour = (double *) calloc(inst->nnodes, sizeof(double));  
@@ -168,9 +169,14 @@ void nearest_neighbor(instance *inst) {
         }
 
         double cur_sol_cost = calculate_tour_cost(tour, inst);  
+        if (cur_sol_cost < best_nn_tour_cost) {
+            best_nn_tour_cost = cur_sol_cost;  
+        }
+
         bool solution_is_fiseable = check_tour_feasability(tour, inst);  
         if (solution_is_fiseable) {
             check_solution(tour, cur_sol_cost, inst);
+            two_opt(tour, inst);
         }
 
         // Update time left
@@ -189,16 +195,14 @@ void nearest_neighbor(instance *inst) {
         free(tour);
         free(visited);  
     }
+    if (VERBOSE >= 30){
+        printf("NEAREST NEIGHBOR BEST FINAL COST: %lf\n", best_nn_tour_cost);
+        printf("UPDATED COST AFTER 2-OPT: %lf\n", inst->best_sol_cost);
+    }
 }
 
 // Function to implement 2-opt heuristic for TSP that uses instance's best solution
-void two_opt(instance *inst) {
-    
-    // Check if the time limit has already been reached
-    if (inst->time_left <= 0){
-        if (VERBOSE >= 70) printf("Time limit reached before starting 2-opt\n");
-        return;
-    }
+void two_opt(double *solution, instance *inst) {
 
     double *tour = (double *) calloc(inst->nnodes, sizeof(double));  
     if (tour == NULL){
@@ -207,12 +211,10 @@ void two_opt(instance *inst) {
     double t1 = second(); 
 
     // Initialize the tour with the best solution
-    memmove(tour, inst->best_sol, inst->nnodes * sizeof(double));
+    memmove(tour, solution, inst->nnodes * sizeof(double));
 
-    if (VERBOSE >= 50){
-        printf("----------------------------------------------------------------------------------------------\n\n");
-        printf("Starting 2-opt heuristic\n");
-        fprintf(stdout, "INITIAL COST: %lf\n", calculate_tour_cost(tour, inst));
+    if (VERBOSE >= 60){
+        fprintf(stdout, "2-opt INITIAL COST: %lf\n", calculate_tour_cost(tour, inst));
     }
 
     bool improved = true;  
@@ -243,7 +245,7 @@ void two_opt(instance *inst) {
                     if (VERBOSE >= 60){
                         fprintf(stdout, "MODIFIED COST: %lf\n", calculate_tour_cost(tour, inst));
                     }
-                    update_best_solution(tour, calculate_tour_cost(tour, inst), inst);  
+                    check_solution(tour, calculate_tour_cost(tour, inst), inst);
 
                     // Update time left
                     double t2 = second();
@@ -260,8 +262,8 @@ void two_opt(instance *inst) {
             }
         }
     }
-    if (VERBOSE >= 50){
-        fprintf(stdout, "FINAL COST: %lf\n", inst->best_sol_cost);
+    if (VERBOSE >= 60){
+        fprintf(stdout, "2-opt FINAL COST: %lf\n", inst->best_sol_cost);
         printf("----------------------------------------------------------------------------------------------\n\n");
 
     }

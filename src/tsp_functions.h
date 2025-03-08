@@ -67,6 +67,6 @@ void nearest_neighbor(instance *inst);
 double calculate_tour_cost(const double *tour,  instance *inst);
 
 // Function to implement the 2-opt heuristic for the TSP
-void two_opt(instance *inst);
+void two_opt(double *solution, instance *inst);
 
 #endif // TSP_FUNCTIONS_H
