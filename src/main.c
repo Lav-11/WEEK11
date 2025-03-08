@@ -152,7 +152,7 @@ void parse_command_line(int argc, char** argv, instance *inst)
 		printf("-file: %s\n", inst->input_file); 
 		printf("-time_limit: %lf\n", inst->time_limit);
 		printf("-seed %d\n", inst->seed); 
-		printf("-number of random points(-1 if a file is provided): %d\n", inst->nnodes); 
+		printf("-number of random nodes (-1 if a file is provided): %d\n", inst->nnodes); 
 		printf("\nenter -help or --help for help\n");
 		printf("----------------------------------------------------------------------------------------------\n\n");
 	}        

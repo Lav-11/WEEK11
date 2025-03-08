@@ -221,11 +221,10 @@ void two_opt(double *solution, instance *inst) {
     while(improved) {
         improved = false;
         for (int i = 0; i < inst->nnodes ; i++) {
-            for (int j = i; j <= fmin(inst->nnodes-2+i, inst->nnodes-1); j++) {
-                if (abs(i-j) < 1 || abs(i-j-inst->nnodes)<1) continue;  // Skip adjacent nodes
+            for (int j = i+1; j < inst->nnodes; j++) {
     
                 // Calculate the new tour cost
-                int next_j = (j + 1 == inst->nnodes) ? 0 : j + 1;
+                int next_j = (j + 1 == inst->nnodes) ? 0 : j + 1; // Node j+1 is node 0 if node j is the last node of the solution
                 double cost_delta = inst->distances[(int)(tour[i]-1) * inst->nnodes + (int)(tour[j]-1)] + inst->distances[(int)(tour[i+1]-1) * inst->nnodes + (int)(tour[next_j]-1)] - 
                                     inst->distances[(int)(tour[i]-1) * inst->nnodes + (int)(tour[i+1]-1)] - inst->distances[(int)(tour[j]-1) * inst->nnodes + (int)(tour[next_j]-1)];
 
