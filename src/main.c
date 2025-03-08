@@ -19,15 +19,21 @@ int main(int argc, char **argv)
 	double t1 = second(); 
 	instance inst;
 
+	//General calls for initial calculations and input reading
 	parse_command_line(argc,argv, &inst);  
 	read_input(&inst);  
 	calculate_distances(&inst);
+	
+	//Nearest neighbor heuristic and gnuplot output
 	nearest_neighbor(&inst);
 	export_solution_for_gnuplot("../data/solution.dat", &inst);
 	png_solution_for_gnuplot("../data/solution.dat", "../data/solution.png");
+
+	//2-opt heuristic and gnuplot output
 	two_opt(&inst);
 	export_solution_for_gnuplot("../data/final_solution.dat", &inst);
 	png_solution_for_gnuplot("../data/final_solution.dat", "../data/final_solution.png");
+
     double t2 = second(); 
 
 	if ( VERBOSE >= 1 )   
@@ -42,7 +48,7 @@ int main(int argc, char **argv)
 void read_input(instance *inst)  
 {
 	if (inst->nnodes < 0){
-		FILE *fp = fopen(inst->input_file, "r");  // Open the file for reading
+		FILE *fp = fopen(inst->input_file, "r");  
 		if (!fp) {
 			print_error("Error opening file");
 		}
@@ -63,12 +69,11 @@ void read_input(instance *inst)
 			if (strncmp(line, "DIMENSION", 9) == 0) {
 				char *ptr = strchr(line, ':');
 				if (ptr)
-					inst->nnodes = atoi(ptr + 1);  // Extract the number of nodes
+					inst->nnodes = atoi(ptr + 1);  
 				else {
 					char dummy[100];
-					sscanf(line, "%s %d", dummy, &inst->nnodes);  // Alternative way to extract the number of nodes
+					sscanf(line, "%s %d", dummy, &inst->nnodes);  
 				}
-				// Allocate memory for the coordinates of the nodes
 				inst->xcoord = malloc(inst->nnodes * sizeof(double));
 				inst->ycoord = malloc(inst->nnodes * sizeof(double));
 				if (!inst->xcoord || !inst->ycoord)
@@ -80,7 +85,7 @@ void read_input(instance *inst)
 				continue;
 			} else if (in_node_section) {
 				if (strcmp(line, "EOF") == 0)
-					break;  // End of the node section
+					break;  
 				int id;
 				double x, y;
 				// Read the node ID and coordinates
@@ -94,19 +99,20 @@ void read_input(instance *inst)
 			}
 		}
 	
-		fclose(fp);  // Close the file
+		fclose(fp);  
 	}
 	else {
 		// Set the number of nodes (random value between 50 and 100)
-		inst->xcoord = malloc(inst->nnodes * sizeof(double));  // Allocate memory for x-coordinates
-		inst->ycoord = malloc(inst->nnodes * sizeof(double));  // Allocate memory for y-coordinates
-		strncpy(inst->input_file, "randomly generated", 1000);  // Mark as a random instance
-		int seed = inst->seed;  // Random seed
-		srand(seed);  // Initialize the random number generator
+		inst->xcoord = malloc(inst->nnodes * sizeof(double));  
+		inst->ycoord = malloc(inst->nnodes * sizeof(double));  
+		strncpy(inst->input_file, "randomly generated", 1000);  
+		int seed = inst->seed;  
+		srand(seed);  
+
 		// Generate random coordinates between 0 and 9999
 		for (int i = 0; i < inst->nnodes; i++) {
-			inst->xcoord[i] = (double)((double)rand() / RAND_MAX)*10000;  // Random x-coordinate
-			inst->ycoord[i] = (double)((double)rand() / RAND_MAX)*10000;  // Random y-coordinate
+			inst->xcoord[i] = (double)((double)rand() / RAND_MAX)*10000;  
+			inst->ycoord[i] = (double)((double)rand() / RAND_MAX)*10000; 
 		}
 	
 	}		
@@ -122,31 +128,22 @@ void parse_command_line(int argc, char** argv, instance *inst)
 	strcpy(inst->input_file, "NULL");
 	inst->seed = 0; 
 	inst->nnodes = -1;
-	inst->timelimit = 5; 
-	inst->time_left = inst->timelimit;
+	inst->time_limit = 60; 
+	inst->time_left = inst->time_limit;
 	inst->best_sol_cost = 1e+20;
 	int got_input_file = 0;
 
     int help = 0; if ( argc < 1 ) help = 1;	
 	for ( int i = 1; i < argc; i++ ) 
 	{ 
-		if ( strcmp(argv[i],"-file") == 0 ) { strcpy(inst->input_file,argv[++i]); got_input_file=1; continue; } 			// input file
-		if ( strcmp(argv[i],"-input") == 0 ) { strcpy(inst->input_file,argv[++i]); got_input_file=1; continue; } 			// input file
-		if ( strcmp(argv[i],"-f") == 0 ) { strcpy(inst->input_file,argv[++i]); got_input_file=1; continue; } 				// input file
-		if ( strcmp(argv[i],"-tl") == 0 ) { inst->timelimit = atof(argv[++i]); continue; }		// total time limit
-		// if ( strcmp(argv[i],"-model_type") == 0 ) { inst->model_type = atoi(argv[++i]); continue; } 	// model type
-		// if ( strcmp(argv[i],"-old_benders") == 0 ) { inst->old_benders = atoi(argv[++i]); continue; } 	// old benders
-		// if ( strcmp(argv[i],"-model") == 0 ) { inst->model_type = atoi(argv[++i]); continue; } 			// model type
-		if ( strcmp(argv[i],"-seed") == 0 ) { inst->seed = abs(atoi(argv[++i])); continue; } 				// random seed
-		if ( strcmp(argv[i],"-num_nodes") == 0 ) { inst->nnodes = atoi(argv[++i]); continue; } 				// random seed
-		// if ( strcmp(argv[i],"-threads") == 0 ) { inst->num_threads = atoi(argv[++i]); continue; } 		// n. threads
-		// if ( strcmp(argv[i],"-memory") == 0 ) { inst->available_memory = atoi(argv[++i]); continue; }	// available memory (in MB)
-		// if ( strcmp(argv[i],"-node_file") == 0 ) { strcpy(inst->node_file,argv[++i]); continue; }		// cplex's node file
-		// if ( strcmp(argv[i],"-max_nodes") == 0 ) { inst->max_nodes = atoi(argv[++i]); continue; } 		// max n. of nodes
-		// if ( strcmp(argv[i],"-cutoff") == 0 ) { inst->cutoff = atof(argv[++i]); continue; }				// master cutoff
-		// if ( strcmp(argv[i],"-int") == 0 ) { inst->integer_costs = 1; continue; } 						// inteher costs
-		if ( strcmp(argv[i],"-help") == 0 ) { help = 1; continue; } 									// help
-		if ( strcmp(argv[i],"--help") == 0 ) { help = 1; continue; } 									// help
+		if ( strcmp(argv[i],"-file") == 0 ) { strcpy(inst->input_file,argv[++i]); got_input_file=1; continue; } 	// input file
+		if ( strcmp(argv[i],"-input") == 0 ) { strcpy(inst->input_file,argv[++i]); got_input_file=1; continue; } 	// input file
+		if ( strcmp(argv[i],"-f") == 0 ) { strcpy(inst->input_file,argv[++i]); got_input_file=1; continue; } 		// input file
+		if ( strcmp(argv[i],"-tl") == 0 ) { inst->time_limit = atof(argv[++i]); continue; }							// time limit
+		if ( strcmp(argv[i],"-seed") == 0 ) { inst->seed = abs(atoi(argv[++i])); continue; } 						// random seed
+		if ( strcmp(argv[i],"-num_nodes") == 0 ) { inst->nnodes = atoi(argv[++i]); continue; } 						// random seed
+		if ( strcmp(argv[i],"-help") == 0 ) { help = 1; continue; } 												// help
+		if ( strcmp(argv[i],"--help") == 0 ) { help = 1; continue; } 												// help
 		help = 1;
     }      
 
@@ -154,18 +151,9 @@ void parse_command_line(int argc, char** argv, instance *inst)
 	{
 		printf("\n\navailable parameters (vers. 16-may-2015) --------------------------------------------------\n");
 		printf("-file %s\n", inst->input_file); 
-		printf("-time_limit %lf\n", inst->timelimit);
+		printf("-time_limit %lf\n", inst->time_limit);
 		printf("-seed %d\n", inst->seed); 
 		printf("-number of nodes %d\n", inst->nnodes); 
-		// printf("-model_type %d\n", inst->model_type); 
-		// printf("-old_benders %d\n", inst->old_benders); 
-		// printf("-seed %d\n", inst->randomseed); 
-		// printf("-threads %d\n", inst->num_threads);  
-		// printf("-max_nodes %d\n", inst->max_nodes); 
-		// printf("-memory %d\n", inst->available_memory); 
-		// printf("-int %d\n", inst->integer_costs); 
-		// printf("-node_file %s\n", inst->node_file);
-		// printf("-cutoff %lf\n", inst->cutoff); 
 		printf("\nenter -help or --help for help\n");
 		printf("----------------------------------------------------------------------------------------------\n\n");
 	}        
