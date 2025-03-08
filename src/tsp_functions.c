@@ -133,7 +133,7 @@ void nearest_neighbor(instance *inst) {
     }
     if (VERBOSE >= 50){
         printf("----------------------------------------------------------------------------------------------\n\n");
-        printf("Starting Nearest Neighbor\n");
+        printf("Nearest Neighbor calculations\n");
     }
     double t1 = second();  // Start time
     double best_nn_tour_cost = 1e20;  // Initialize the best tour cost for nearest neighbor
@@ -175,21 +175,23 @@ void nearest_neighbor(instance *inst) {
 
         bool solution_is_fiseable = check_tour_feasability(tour, inst);  
         if (solution_is_fiseable) {
+            // Update time left
+            double t2 = second();
+            t1 = t2;
+
+            // Check if the time limit has been reached
+            if (inst->time_left <= 0){
+                if (VERBOSE >= 50) printf("Time limit reached\n");
+                if (VERBOSE >= 30){
+                    printf("NEAREST NEIGHBOR BEST FINAL COST: %lf\n", best_nn_tour_cost);
+                    printf("UPDATED COST AFTER 2-OPT: %lf\n", inst->best_sol_cost);
+                }            
+                free(tour);  
+                free(visited);  
+                return;
+            }
             check_solution(tour, cur_sol_cost, inst);
             two_opt(tour, inst);
-        }
-
-        // Update time left
-        double t2 = second();
-        inst->time_left -= (t2 - t1);
-        t1 = t2;
-
-        // Check if the time limit has been reached
-        if (inst->time_left <= 0){
-            if (VERBOSE >= 50) printf("Time limit reached\n");            
-            free(tour);  
-            free(visited);  
-            return;
         }
 
         free(tour);
@@ -208,11 +210,10 @@ void two_opt(double *solution, instance *inst) {
     if (tour == NULL){
         print_error("Memory allocation failed");
     }
-    double t1 = second(); 
 
     // Initialize the tour with the best solution
     memmove(tour, solution, inst->nnodes * sizeof(double));
-
+    double t1 = second();  // Start time
     if (VERBOSE >= 60){
         fprintf(stdout, "2-opt INITIAL COST: %lf\n", calculate_tour_cost(tour, inst));
     }
