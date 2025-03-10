@@ -111,7 +111,7 @@ bool check_tour_feasability(const double *tour, instance *inst) {
 // Function to compare input tour to best solution
 void check_solution(double* tour, double cur_sol_cost, instance *inst) {
     double cost = inst->best_sol_cost;  
-    if (cur_sol_cost < cost) {  
+    if (cur_sol_cost < cost && check_tour_feasability(tour, inst)) {  
         if (VERBOSE >= 60){
         printf("New best solution found with cost: %.10f\n", cur_sol_cost);  
         }
@@ -153,7 +153,7 @@ void nearest_neighbor(instance *inst) {
             int nextNode = -1;
             for (int j = 0; j < inst->nnodes; j++) {
                 if (!visited[j]) {
-                    double d = dist(current, j, inst);  
+                    double d = inst->distances[current * inst->nnodes + j];  
                     if (d < minDist) {
                         minDist = d;
                         nextNode = j;
@@ -173,29 +173,27 @@ void nearest_neighbor(instance *inst) {
             best_nn_tour_cost = cur_sol_cost;  
         }
 
-        bool solution_is_feasible = check_tour_feasability(tour, inst);  
-        if (solution_is_feasible) {
-            check_solution(tour, cur_sol_cost, inst);
-            if (inst->time_left > 0) {
-                // Update time left only if a new best solution is found
-                double t2 = second();
-                inst->time_left -= (t2 - t1);
-                t1 = t2;
+        check_solution(tour, cur_sol_cost, inst);
+        if (inst->time_left > 0) {
+            // Update time left only if a new best solution is found
+            double t2 = second();
+            inst->time_left -= (t2 - t1);
+            t1 = t2;
 
-                // Check if the time limit has been reached
-                if (inst->time_left <= 0){
-                    if (VERBOSE >= 50) printf("Time limit reached in NN\n");
-                    if (VERBOSE >= 30){
-                        printf("NEAREST NEIGHBOR BEST FINAL COST: %lf\n", best_nn_tour_cost);
-                        printf("UPDATED COST AFTER 2-OPT: %lf\n", inst->best_sol_cost);
-                    }            
-                    free(tour);  
-                    free(visited);  
-                    return;
-                }
+            // Check if the time limit has been reached
+            if (inst->time_left <= 0){
+                if (VERBOSE >= 50) printf("Time limit reached in NN\n");
+                if (VERBOSE >= 30){
+                    printf("NEAREST NEIGHBOR BEST FINAL COST: %lf\n", best_nn_tour_cost);
+                    printf("UPDATED COST AFTER 2-OPT: %lf\n", inst->best_sol_cost);
+                }            
+                free(tour);  
+                free(visited);  
+                return;
             }
-            if (inst->time_left > 0) two_opt(tour, inst);
         }
+        if (inst->time_left > 0) two_opt(tour, inst);
+        
 
         free(tour);
         free(visited);  
@@ -245,7 +243,7 @@ void two_opt(double *solution, instance *inst) {
                         end--;
                     }
                     improved = true;  
-                    if (VERBOSE >= 60){
+                    if (VERBOSE >= 80){
                         fprintf(stdout, "MODIFIED COST: %lf\n", calculate_tour_cost(tour, inst));
                     }
                     check_solution(tour, calculate_tour_cost(tour, inst), inst);

@@ -26,10 +26,6 @@ int main(int argc, char **argv)
 	
 	//Nearest neighbor heuristic and gnuplot output
 	nearest_neighbor(&inst);
-	export_solution_for_gnuplot("../data/solution.dat", &inst);
-	png_solution_for_gnuplot("../data/solution.dat", "../data/solution.png");
-
-	//2-opt heuristic and gnuplot output
 	export_solution_for_gnuplot("../data/final_solution.dat", &inst);
 	png_solution_for_gnuplot("../data/final_solution.dat", "../data/final_solution.png");
 
@@ -37,7 +33,7 @@ int main(int argc, char **argv)
 
 	if ( VERBOSE >= 1 )   
 	{
-		printf("TSP problem solved in %lf sec.s\n", t2-t1);  
+		printf("TSP problem calculations terminated in %lf sec.s\n", t2-t1);  
 	}
 	
 	return 0; 
