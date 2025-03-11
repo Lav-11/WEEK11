@@ -1,5 +1,5 @@
-#ifndef TSP_FUNCTIONS_H
-#define TSP_FUNCTIONS_H
+#ifndef TSP_UTILS_H
+#define TSP_UTILS_H
 
 #include <stdio.h>
 #include <math.h>
@@ -28,7 +28,7 @@ typedef struct {
     int seed;                       // Seed used to generate the random instance (if applicable)
     double* distances;              // Distance matrix for the TSP instance
     double time_limit;				// overall time limit, in sec.s
-    double time_left;               // time left, in sec.s
+    double start_time;               // time left, in sec.s
     char input_file[1000];          // The name of the input file (for debugging or reference)
     double *best_sol;               // Best known solution (tour) for the TSP instance
     double best_sol_cost;           // Cost of the best known solution
@@ -45,28 +45,19 @@ double dist(int i, int j, instance *inst);
 // Function to calculate the distance matrix for the TSP instance
 void calculate_distances(instance *inst);
 
-// Function to save the solution in a file that will be used by gnuplot
-void export_solution_for_gnuplot(const char *filename, const instance *inst);
-
 // Function to save the solution in a PNG file using gnuplot
-void png_solution_for_gnuplot(const char *input_filename, const char *output_filename);
+void png_solution_for_gnuplot(const double *solution, const bool save_dat_file, char *output_filename, instance *inst);
 
 // Function to check the feasibility of a tour
 bool check_tour_feasability(const double *tour, instance *inst);
 
 // Function to check if the current solution is better than the best solution found so far
-void check_solution(double* tour, double cur_sol_cost, instance *inst);
+void check_if_best_solution(double* tour, double cur_sol_cost, instance *inst);
 
 // Function to update the best solution found so far
 void update_best_solution(double* tour, double cur_sol_cost, instance *inst);
 
-// Function to find the nearest neighbor tour for the TSP
-void nearest_neighbor(instance *inst);
-
 // Function to calculate the cost of a tour for the TSP instance
 double calculate_tour_cost(const double *tour,  instance *inst);
 
-// Function to implement the 2-opt heuristic for the TSP
-void two_opt(double *solution, instance *inst);
-
-#endif // TSP_FUNCTIONS_H
+#endif // TSP_UTILS_H

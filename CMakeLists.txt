@@ -16,7 +16,7 @@ include_directories("${CPLEXDIR}/include")
 link_directories("${CPLEXDIR}/lib/x86-64_linux/static_pic")  # Usa "shared" se preferisci librerie dinamiche
 
 # Crea l'eseguibile
-add_executable(parser src/main.c src/tsp_functions.c src/chrono.c)
+add_executable(parser src/main.c src/tsp_utils.c src/chrono.c src/heuristics.c)
 
 # Aggiungi il link alle librerie di CPLEX (statiche o dinamiche)
 target_link_libraries(parser 

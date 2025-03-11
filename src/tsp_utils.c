@@ -1,0 +1,154 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <stdbool.h>
+#include <time.h>
+#include "tsp_utils.h"
+#include "heuristics.h"
+#include "chrono.h"
+
+// Function to print an error message and terminate the program
+void print_error(const char *err) {
+    printf("\n\n ERROR: %s \n\n", err);  
+    fflush(NULL);  
+    exit(1);  
+}
+
+// Function to generate a random number between 0 and 1
+double random01(unsigned int *seed) {
+    return ((double) rand_r(seed) / RAND_MAX);
+}
+
+// Function to calculate the Euclidean distance between two nodes
+double dist(int i, int j, instance *inst) {
+    double dx = inst->xcoord[i] - inst->xcoord[j];  
+    double dy = inst->ycoord[i] - inst->ycoord[j];  
+    return (double)(sqrt(dx * dx + dy * dy));
+}
+
+// Function that calculates a matrix that stores the distance between each pair of nodes
+void calculate_distances(instance *inst) {
+    inst->distances = (double *) calloc(inst->nnodes * inst->nnodes, sizeof(double));
+    if (inst->distances == NULL){
+        print_error("Memory allocation failed");
+        return;
+    }
+    for (int i = 0; i < inst->nnodes; i++) {
+        for (int j = 0; j < inst->nnodes; j++) {
+            inst->distances[i * inst->nnodes + j] = dist(i, j, inst);
+        }
+    }
+}
+
+// Function to save the solution in a png using gnuplot
+void png_solution_for_gnuplot(const double *solution, const bool save_dat_file, char *output_filename, instance *inst) {
+    FILE *gnuplotPipe = popen("gnuplot", "w");
+    if (!gnuplotPipe) {
+        print_error("Error opening pipe to gnuplot");
+        return;
+    }
+
+    fprintf(gnuplotPipe, "set terminal png size 1280,900\n");
+    fprintf(gnuplotPipe, "set output '%s.png'\n", output_filename);
+    fprintf(gnuplotPipe, "set title 'TSP Solution'\n");
+    fprintf(gnuplotPipe, "set xlabel 'X'\n");
+    fprintf(gnuplotPipe, "set ylabel 'Y'\n");
+    fprintf(gnuplotPipe, "plot '-' using 1:2 with lines linewidth 2 linecolor 'blue' title 'TSP Path', '-' using 1:2 with points pointtype 7 pointsize 2 linecolor 'red' notitle\n");
+
+    for (int i = 0; i < inst->nnodes+1; i++) {
+        int idx = (int)solution[i] - 1;
+        fprintf(gnuplotPipe, "%lf %lf\n", inst->xcoord[idx], inst->ycoord[idx]);
+    }
+
+    fprintf(gnuplotPipe, "e\n");
+
+    for (int i = 0; i < inst->nnodes+1; i++) {
+        int idx = (int)solution[i] - 1;
+        fprintf(gnuplotPipe, "%lf %lf\n", inst->xcoord[idx], inst->ycoord[idx]);
+    }
+
+    fprintf(gnuplotPipe, "e\n");
+    fflush(gnuplotPipe);
+    pclose(gnuplotPipe);
+
+    if (save_dat_file) {
+        char dat_filename[256];
+        snprintf(dat_filename, sizeof(dat_filename), "%s.dat", output_filename);
+        FILE *datFile = fopen(dat_filename, "w");
+        if (!datFile) {
+            print_error("Error opening solution .dat file");
+            return;
+        }
+        for (int i = 0; i < inst->nnodes+1; i++) {
+            int idx = (int)solution[i] - 1;
+            fprintf(datFile, "%lf %lf\n", inst->xcoord[idx], inst->ycoord[idx]);
+        }
+        fclose(datFile);
+    }
+}
+
+
+// Function to calculate tour cost
+double calculate_tour_cost(const double *tour, instance *inst) {
+    double total_cost = 0.0;
+    for (int i = 0; i < inst->nnodes; i++) {
+        int from = (int)tour[i] - 1;
+        int to = (int)tour[i + 1] - 1;
+        total_cost += dist(from, to, inst);
+    }
+    return total_cost;
+}
+
+
+// Function to check the feasibility of a tour. It checks if nodes compare only once in the tour
+bool check_tour_feasability(const double *tour, instance *inst) {
+    bool *visited = calloc(inst->nnodes, sizeof(bool));  
+    if (!visited){
+        print_error("Memory allocation error for visited");
+        } 
+
+    for (int i = 0; i < inst->nnodes; i++) {
+        if (tour[i] < 1 || tour[i] > inst->nnodes) {
+            free(visited);  
+            printf("Node %d out of bounds\n", (int)tour[i]);
+            return false;
+        }
+        if (visited[(int)tour[i] - 1]) {
+            free(visited);  
+            printf("Node %d visited more than once\n", (int)tour[i]);
+            return false;
+        }
+        visited[(int)tour[i] - 1] = true;
+    }
+
+    for (int i = 0; i < inst->nnodes; i++) {
+        if (!visited[i]) {
+            free(visited);  
+            printf("Node %d not visited\n", (int)tour[i]);
+            return false;
+        }
+    }
+
+    free(visited);  
+    return true;
+}
+
+// Function to compare input tour to best solution
+void check_if_best_solution(double* tour, double cur_sol_cost, instance *inst) {
+    double cost = inst->best_sol_cost;  
+    if (cur_sol_cost < cost) {  
+        if (check_tour_feasability(tour, inst)){      //Divide the 2 if for better efficiency  
+            if (VERBOSE >= 60){
+            printf("New best solution found with cost: %.10f\n", cur_sol_cost);  
+            }
+            update_best_solution(tour, cur_sol_cost, inst);  
+        }
+    }
+}
+
+// Function to update the best solution
+void update_best_solution(double* tour, double cur_sol_cost, instance *inst) {
+    inst->best_sol_cost = cur_sol_cost;  
+    memmove(inst->best_sol, tour, (inst->nnodes+1) * sizeof(double)); 
+    }
