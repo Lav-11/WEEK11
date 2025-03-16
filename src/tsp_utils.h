@@ -39,6 +39,9 @@ typedef struct {
 // Function to print an error message and terminate the program
 void print_error(const char *err);
 
+// Function to generate a random number between 0 and 1
+double random01(unsigned int *seed);
+
 // Function to calculate the Euclidean distance between two nodes i and j in the TSP instance
 double dist(int i, int j, instance *inst);
 

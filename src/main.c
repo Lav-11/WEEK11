@@ -27,8 +27,10 @@ int main(int argc, char **argv)
 	calculate_distances(&inst);
 	
 	//Nearest neighbor heuristic and gnuplot output
-	nearest_neighbor(&inst, true);
+	nearest_neighbor(&inst, false);
+	variable_neighborhood_search(&inst);
 	png_solution_for_gnuplot(inst.best_sol, true, "../data/nearest_neighbor", &inst);
+	
 
     double t2 = second(); 
 
@@ -124,7 +126,7 @@ void parse_command_line(int argc, char** argv, instance *inst)
 	strcpy(inst->input_file, "NULL");
 	inst->seed = 0; 
 	inst->nnodes = -1;
-	inst->time_limit = 60; 
+	inst->time_limit = 120; 
 	inst->best_sol_cost = 1e+20;
 	int got_input_file = 0;
 

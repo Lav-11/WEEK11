@@ -63,7 +63,7 @@ void nearest_neighbor(instance *inst, bool use_two_opt) {
             if (VERBOSE >= 50) printf("Time limit reached in NN\n");
             if (VERBOSE >= 30){
                 printf("NEAREST NEIGHBOR BEST FINAL COST: %lf\n", best_nn_tour_cost);
-                printf("UPDATED COST AFTER 2-OPT: %lf\n", inst->best_sol_cost);
+                if (use_two_opt) printf("UPDATED COST AFTER 2-OPT: %lf\n", inst->best_sol_cost);
             }            
             free(tour);  
             free(visited);  
@@ -77,8 +77,48 @@ void nearest_neighbor(instance *inst, bool use_two_opt) {
     }
     if (VERBOSE >= 30){
         printf("NEAREST NEIGHBOR BEST FINAL COST: %lf\n", best_nn_tour_cost);
-        printf("UPDATED COST AFTER 2-OPT: %lf\n", inst->best_sol_cost);
+        if (use_two_opt) printf("UPDATED COST AFTER 2-OPT: %lf\n", inst->best_sol_cost);
     }
+}
+
+//Function to immpement variable neighborhood search(VNS) for TSP
+void variable_neighborhood_search(instance *inst) {
+    double t1 = second();  // Start time
+    double *tour = (double *) calloc(inst->nnodes+1, sizeof(double));
+
+    if (tour == NULL){
+        print_error("Memory allocation failed");
+    }
+
+    // Initialize the tour with the best solution
+    memmove(tour, inst->best_sol, (inst->nnodes + 1) * sizeof(double));
+    if (VERBOSE >= 50){
+        printf("----------------------------------------------------------------------------------------------\n\n");
+        printf("Variable Neighborhood Search calculations\n");
+    }
+    
+    double best_tour_cost = calculate_tour_cost(tour, inst);
+    int jumps_to_perform = 1;
+    while(t1-inst->start_time < inst->time_limit) {
+        two_opt(tour, inst);
+        double running_tour_cost = calculate_tour_cost(tour, inst);
+        if(running_tour_cost >= best_tour_cost) {           
+            for(int i = 0; i < jumps_to_perform; i++) {
+                three_opt(tour, inst);
+            }
+            jumps_to_perform++;
+        }
+        else {
+            best_tour_cost = running_tour_cost;
+            jumps_to_perform = 1;
+        }
+        t1 = second();
+    }
+    if (VERBOSE >= 30){
+        printf("VNS FINAL COST: %lf\n", inst->best_sol_cost);
+        printf("----------------------------------------------------------------------------------------------\n\n");
+    }
+    free(tour);  
 }
 
 // Function to implement 2-opt heuristic for TSP that uses instance's best solution
@@ -130,8 +170,9 @@ void two_opt(double *solution, instance *inst) {
                         // Check if the time limit has been reached
                         if (time_now-inst->start_time > inst->time_limit) {
                             if (VERBOSE >= 50) printf("Time limit reached in two_opt\n");
-                            free(tour);  
-                            return;
+                            memmove(solution, tour, (inst->nnodes+1) * sizeof(double));
+                            free(tour); 
+                            return; 
                         }
                     }
                 }
@@ -143,6 +184,50 @@ void two_opt(double *solution, instance *inst) {
         printf("----------------------------------------------------------------------------------------------\n\n");
 
     }
-
+    memmove(solution, tour, (inst->nnodes+1) * sizeof(double));
     free(tour);  
+}
+
+// Function to implement 3-opt jump
+void three_opt(double *solution, instance *inst) {
+    if (VERBOSE >= 60){
+        printf("3-opt jump called");
+    }
+
+    // Generate randomly 3 integers i, j, k such that i < j < k < nnodes
+    int i, j, k; 
+    srand(time(NULL)); // Seed the random number generator with the current time
+    do {
+        i = rand() % inst->nnodes;
+        j = rand() % inst->nnodes;
+        k = rand() % inst->nnodes;
+    } while (!(i < j && j < k && i != j && j != k && i != k));
+
+    // Perform the swap between the block between i+1 and j and the block between j+1 and k
+    double *new_tour = (double *) calloc(inst->nnodes+1, sizeof(double));
+    if (new_tour == NULL){
+        print_error("Memory allocation failed");
+    }
+    int count = 0;
+    for (int l = 0; l <= i; l++) {
+        new_tour[count] = solution[l];
+        count++;
+    }
+    for (int l = j+1; l <= k; l++) {
+        new_tour[count] = solution[l];
+        count++;
+    }
+    for (int l = i+1; l <= j; l++) {
+        new_tour[count] = solution[l];
+        count++;
+    }
+    for (int l = k+1; l < inst->nnodes; l++) {
+        new_tour[count] = solution[l];
+        count++;
+    }
+    new_tour[inst->nnodes] = new_tour[0];
+    png_solution_for_gnuplot(new_tour, true, "../data/3opt", inst);
+
+    memmove(solution, new_tour, (inst->nnodes+1) * sizeof(double));
+    free(new_tour); 
 }
