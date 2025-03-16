@@ -27,9 +27,10 @@ int main(int argc, char **argv)
 	calculate_distances(&inst);
 	
 	//Nearest neighbor heuristic and gnuplot output
-	nearest_neighbor(&inst, false);
-	variable_neighborhood_search(&inst);
+	nearest_neighbor(&inst, true);
 	png_solution_for_gnuplot(inst.best_sol, true, "../data/nearest_neighbor", &inst);
+	variable_neighborhood_search(&inst, 0.1, false);
+	png_solution_for_gnuplot(inst.best_sol, true, "../data/vns", &inst);
 	
 
     double t2 = second(); 

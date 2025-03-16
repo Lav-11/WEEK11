@@ -16,7 +16,6 @@ void nearest_neighbor(instance *inst, bool use_two_opt) {
         print_error("Memory allocation failed");
     }
     if (VERBOSE >= 50){
-        printf("----------------------------------------------------------------------------------------------\n\n");
         printf("Nearest Neighbor calculations\n");
     }
     double best_nn_tour_cost = 1e20;  // Initialize the best tour cost for nearest neighbor
@@ -82,7 +81,7 @@ void nearest_neighbor(instance *inst, bool use_two_opt) {
 }
 
 //Function to immpement variable neighborhood search(VNS) for TSP
-void variable_neighborhood_search(instance *inst) {
+void variable_neighborhood_search(instance *inst, double learning_rate, bool exponential_learning_rate) {
     double t1 = second();  // Start time
     double *tour = (double *) calloc(inst->nnodes+1, sizeof(double));
 
@@ -98,18 +97,20 @@ void variable_neighborhood_search(instance *inst) {
     }
     
     double best_tour_cost = calculate_tour_cost(tour, inst);
-    int jumps_to_perform = 1;
+    double jumps_to_perform = 1.0;
     while(t1-inst->start_time < inst->time_limit) {
         two_opt(tour, inst);
         double running_tour_cost = calculate_tour_cost(tour, inst);
-        if(running_tour_cost >= best_tour_cost) {           
-            for(int i = 0; i < jumps_to_perform; i++) {
+        if(running_tour_cost >= best_tour_cost) {
+            for(int i = 0; i < (int)jumps_to_perform; i++) {
                 three_opt(tour, inst);
             }
-            jumps_to_perform++;
+            if (exponential_learning_rate) jumps_to_perform*=learning_rate;
+            else jumps_to_perform+=learning_rate;
         }
         else {
             best_tour_cost = running_tour_cost;
+            if (VERBOSE >=50) fprintf(stdout, "Jumps performed to find better solution: %d\n", (int) jumps_to_perform);
             jumps_to_perform = 1;
         }
         t1 = second();
@@ -226,7 +227,6 @@ void three_opt(double *solution, instance *inst) {
         count++;
     }
     new_tour[inst->nnodes] = new_tour[0];
-    png_solution_for_gnuplot(new_tour, true, "../data/3opt", inst);
 
     memmove(solution, new_tour, (inst->nnodes+1) * sizeof(double));
     free(new_tour); 

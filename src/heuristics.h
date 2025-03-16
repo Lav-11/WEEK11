@@ -17,7 +17,7 @@
 void nearest_neighbor(instance *inst, bool use_two_opt);
 
 // Function to implement the variable neighborhood search for the TSP
-void variable_neighborhood_search(instance *inst);
+void variable_neighborhood_search(instance *inst, double learning_rate, bool exponential_learning_rate);
 
 // Function to implement the 2-opt heuristic for the TSP
 void two_opt(double *solution, instance *inst);
