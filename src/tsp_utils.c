@@ -36,7 +36,7 @@ void calculate_distances(instance *inst) {
     }
     for (int i = 0; i < inst->nnodes; i++) {
         for (int j = 0; j < inst->nnodes; j++) {
-            inst->distances[i * inst->nnodes + j] = dist(i, j, inst);
+            inst->distances[i * inst->nnodes + j] = round(dist(i, j, inst));
         }
     }
 }
@@ -95,7 +95,7 @@ double calculate_tour_cost(const double *tour, instance *inst) {
     for (int i = 0; i < inst->nnodes; i++) {
         int from = (int)tour[i] - 1;
         int to = (int)tour[i + 1] - 1;
-        total_cost += dist(from, to, inst);
+        total_cost += inst->distances[from * inst->nnodes + to];
     }
     return total_cost;
 }
