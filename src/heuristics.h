@@ -23,9 +23,9 @@ void grasp(instance *inst, bool use_two_opt, double deviating_probability, bool 
 void variable_neighborhood_search(instance *inst, double learning_rate, int max_jumps);
 
 // Function to implement the 2-opt heuristic for the TSP
-void two_opt(double *solution, instance *inst);
+void two_opt(solution *sol, instance *inst);
 
 // Function to implement the 3-opt heuristic for the TSP
-void three_opt(double *solution, instance *inst);
+void three_opt(solution *sol, instance *inst);
 
 #endif // HEURISTICS_H

@@ -20,6 +20,12 @@
 
 
 
+typedef struct {
+    double *tour;
+    double tour_cost;
+} solution;
+
+
 // Structure for the TSP instance
 typedef struct {
     int nnodes;                     // Number of nodes in the TSP problem
@@ -30,9 +36,9 @@ typedef struct {
     double time_limit;				// overall time limit, in sec.s
     double start_time;               // time left, in sec.s
     char input_file[1000];          // The name of the input file (for debugging or reference)
-    double *best_sol;               // Best known solution (tour) for the TSP instance
-    double best_sol_cost;           // Cost of the best known solution
+    solution *best_sol;             // Best known solution  for the TSP instance
 } instance;
+
 
 // Function prototypes
 
@@ -49,18 +55,18 @@ double dist(int i, int j, instance *inst);
 void calculate_distances(instance *inst);
 
 // Function to save the solution in a PNG file using gnuplot
-void png_solution_for_gnuplot(const double *solution, const bool save_dat_file, char *output_filename, instance *inst);
+void png_solution_for_gnuplot(solution *sol, const bool save_dat_file, char *output_filename, instance *inst);
 
 // Function to check the feasibility of a tour
-bool check_tour_feasability(const double *tour, instance *inst);
+bool check_tour_feasability(solution *sol, instance *inst);
 
 // Function to check if the current solution is better than the best solution found so far
-void check_if_best_solution(double* tour, double cur_sol_cost, instance *inst);
+void check_if_best_solution(solution *sol, instance *inst);
 
 // Function to update the best solution found so far
-void update_best_solution(double* tour, double cur_sol_cost, instance *inst);
+void update_best_solution(solution *sol, instance *inst);
 
 // Function to calculate the cost of a tour for the TSP instance
-double calculate_tour_cost(const double *tour,  instance *inst);
+void calculate_tour_cost(solution *sol,  instance *inst);
 
 #endif // TSP_UTILS_H

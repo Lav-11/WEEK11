@@ -42,7 +42,7 @@ void calculate_distances(instance *inst) {
 }
 
 // Function to save the solution in a png using gnuplot
-void png_solution_for_gnuplot(const double *solution, const bool save_dat_file, char *output_filename, instance *inst) {
+void png_solution_for_gnuplot(solution *sol, const bool save_dat_file, char *output_filename, instance *inst) {
     FILE *gnuplotPipe = popen("gnuplot", "w");
     if (!gnuplotPipe) {
         print_error("Error opening pipe to gnuplot");
@@ -57,14 +57,14 @@ void png_solution_for_gnuplot(const double *solution, const bool save_dat_file, 
     fprintf(gnuplotPipe, "plot '-' using 1:2 with lines linewidth 2 linecolor 'blue' title 'TSP Path', '-' using 1:2 with points pointtype 7 pointsize 2 linecolor 'red' notitle\n");
 
     for (int i = 0; i < inst->nnodes+1; i++) {
-        int idx = (int)solution[i] - 1;
+        int idx = (int)sol->tour[i] - 1;
         fprintf(gnuplotPipe, "%lf %lf\n", inst->xcoord[idx], inst->ycoord[idx]);
     }
 
     fprintf(gnuplotPipe, "e\n");
 
     for (int i = 0; i < inst->nnodes+1; i++) {
-        int idx = (int)solution[i] - 1;
+        int idx = (int)sol->tour[i] - 1;
         fprintf(gnuplotPipe, "%lf %lf\n", inst->xcoord[idx], inst->ycoord[idx]);
     }
 
@@ -81,7 +81,7 @@ void png_solution_for_gnuplot(const double *solution, const bool save_dat_file, 
             return;
         }
         for (int i = 0; i < inst->nnodes+1; i++) {
-            int idx = (int)solution[i] - 1;
+            int idx = (int)sol->tour[i] - 1;
             fprintf(datFile, "%lf %lf\n", inst->xcoord[idx], inst->ycoord[idx]);
         }
         fclose(datFile);
@@ -90,42 +90,42 @@ void png_solution_for_gnuplot(const double *solution, const bool save_dat_file, 
 
 
 // Function to calculate tour cost
-double calculate_tour_cost(const double *tour, instance *inst) {
+void calculate_tour_cost(solution *sol, instance *inst) {
     double total_cost = 0.0;
     for (int i = 0; i < inst->nnodes; i++) {
-        int from = (int)tour[i] - 1;
-        int to = (int)tour[i + 1] - 1;
+        int from = (int)sol->tour[i] - 1;
+        int to = (int)sol->tour[i + 1] - 1;
         total_cost += inst->distances[from * inst->nnodes + to];
     }
-    return total_cost;
+    sol->tour_cost = total_cost;
 }
 
 
 // Function to check the feasibility of a tour. It checks if nodes compare only once in the tour
-bool check_tour_feasability(const double *tour, instance *inst) {
+bool check_tour_feasability(solution *sol, instance *inst) {
     bool *visited = calloc(inst->nnodes, sizeof(bool));  
     if (!visited){
         print_error("Memory allocation error for visited");
         } 
 
     for (int i = 0; i < inst->nnodes; i++) {
-        if (tour[i] < 1 || tour[i] > inst->nnodes) {
+        if (sol->tour[i] < 1 || sol->tour[i] > inst->nnodes) {
             free(visited);  
-            printf("Node %d out of bounds\n", (int)tour[i]);
+            printf("Node %d out of bounds\n", (int)sol->tour[i]);
             return false;
         }
-        if (visited[(int)tour[i] - 1]) {
+        if (visited[(int)sol->tour[i] - 1]) {
             free(visited);  
-            printf("Node %d visited more than once\n", (int)tour[i]);
+            printf("Node %d visited more than once\n", (int)sol->tour[i]);
             return false;
         }
-        visited[(int)tour[i] - 1] = true;
+        visited[(int)sol->tour[i] - 1] = true;
     }
 
     for (int i = 0; i < inst->nnodes; i++) {
         if (!visited[i]) {
             free(visited);  
-            printf("Node %d not visited\n", (int)tour[i]);
+            printf("Node %d not visited\n", (int)sol->tour[i]);
             return false;
         }
     }
@@ -135,20 +135,18 @@ bool check_tour_feasability(const double *tour, instance *inst) {
 }
 
 // Function to compare input tour to best solution
-void check_if_best_solution(double* tour, double cur_sol_cost, instance *inst) {
-    double cost = inst->best_sol_cost;  
-    if (cur_sol_cost < cost) {  
-        if (check_tour_feasability(tour, inst)){      //Divide the 2 if for better efficiency  
+void check_if_best_solution(solution *sol, instance *inst) {
+    if (sol->tour_cost < inst->best_sol->tour_cost) {  
+        if (check_tour_feasability(sol, inst)){      //Divide the 2 if for better efficiency  
             if (VERBOSE >= 60){
-            printf("New best solution found with cost: %.10f\n", cur_sol_cost);  
+            printf("New best solution found with cost: %.10f\n", sol->tour_cost);  
             }
-            update_best_solution(tour, cur_sol_cost, inst);  
+            update_best_solution(sol, inst);  
         }
     }
 }
 
 // Function to update the best solution
-void update_best_solution(double* tour, double cur_sol_cost, instance *inst) {
-    inst->best_sol_cost = cur_sol_cost;  
-    memmove(inst->best_sol, tour, (inst->nnodes+1) * sizeof(double)); 
+void update_best_solution(solution *sol, instance *inst) {
+    memcpy(inst->best_sol, sol, (inst->nnodes+1) * sizeof(double)); 
     }

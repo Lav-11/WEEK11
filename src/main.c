@@ -13,7 +13,6 @@ void parse_command_line(int argc, char** argv, instance *inst);
 
 int main(int argc, char **argv) 
 { 
-
 	if ( argc < 2 ) { printf("Usage: %s -help for help\n", argv[0]); exit(1); }       
 	if ( VERBOSE >= 2 ) { for (int a = 0; a < argc; a++) printf("%s ", argv[a]); printf("\n"); }
 
@@ -29,9 +28,9 @@ int main(int argc, char **argv)
 	//Nearest neighbor heuristic and gnuplot output
 	//grasp(&inst, false, 0.5, false);
 	nearest_neighbor(&inst, false);
-	png_solution_for_gnuplot(inst.best_sol, true, "../data/nearest_neighbor", &inst);
-	variable_neighborhood_search(&inst, 0.02, 100);
-	png_solution_for_gnuplot(inst.best_sol, true, "../data/vns", &inst);
+	//png_solution_for_gnuplot(inst.best_sol, true, "../data/nearest_neighbor", &inst);
+	//variable_neighborhood_search(&inst, 0.02, 100);
+	//png_solution_for_gnuplot(inst.best_sol, true, "../data/vns", &inst);
 	
 
     double t2 = second(); 
@@ -128,8 +127,12 @@ void parse_command_line(int argc, char** argv, instance *inst)
 	strcpy(inst->input_file, "NULL");
 	inst->seed = 0; 
 	inst->nnodes = -1;
-	inst->time_limit = 5; 
-	inst->best_sol_cost = 1e+20;
+	inst->time_limit = 20; 
+	inst->best_sol = (solution *) malloc(sizeof(solution));
+	if (!inst->best_sol) {
+		print_error("Memory allocation failed for best_sol");
+	}
+	inst->best_sol->tour_cost = 1e+20;
 	int got_input_file = 0;
 
     int help = 0; if ( argc < 1 ) help = 1;	
