@@ -27,9 +27,9 @@ int main(int argc, char **argv)
 	
 	//Nearest neighbor heuristic and gnuplot output
 	//grasp(&inst, false, 0.5, false);
-	nearest_neighbor(&inst, false);
-	//png_solution_for_gnuplot(inst.best_sol, true, "../data/nearest_neighbor", &inst);
-	//variable_neighborhood_search(&inst, 0.02, 100);
+	nearest_neighbor(&inst, true);
+	png_solution_for_gnuplot(inst.best_sol, true, "../data/nearest_neighbor", &inst);
+	variable_neighborhood_search(&inst, 0.02, 100);
 	//png_solution_for_gnuplot(inst.best_sol, true, "../data/vns", &inst);
 	
 
@@ -127,7 +127,7 @@ void parse_command_line(int argc, char** argv, instance *inst)
 	strcpy(inst->input_file, "NULL");
 	inst->seed = 0; 
 	inst->nnodes = -1;
-	inst->time_limit = 20; 
+	inst->time_limit = 240; 
 	inst->best_sol = (solution *) malloc(sizeof(solution));
 	if (!inst->best_sol) {
 		print_error("Memory allocation failed for best_sol");
