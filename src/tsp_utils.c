@@ -148,5 +148,12 @@ void check_if_best_solution(solution *sol, instance *inst) {
 
 // Function to update the best solution
 void update_best_solution(solution *sol, instance *inst) {
-    memcpy(inst->best_sol, sol, (inst->nnodes+1) * sizeof(double)); 
+    memcpy(inst->best_sol->tour, sol->tour, (inst->nnodes+1) * sizeof(double)); 
+    inst->best_sol->tour_cost = sol->tour_cost; 
     }
+
+// Function to free memory of a solution struct
+void free_solution(solution *sol) {
+    free(sol->tour);
+    free(sol);
+}

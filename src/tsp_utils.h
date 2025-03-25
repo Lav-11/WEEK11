@@ -69,4 +69,7 @@ void update_best_solution(solution *sol, instance *inst);
 // Function to calculate the cost of a tour for the TSP instance
 void calculate_tour_cost(solution *sol,  instance *inst);
 
+// Function to free the memory of a solution struct
+void free_solution(solution *sol);
+
 #endif // TSP_UTILS_H

@@ -76,7 +76,7 @@ void nearest_neighbor(instance *inst, bool use_two_opt) {
         if (use_two_opt) two_opt(sol, inst);
 
 
-        free(sol);
+        free_solution(sol);
         free(visited);
     }
     if (VERBOSE >= 30){
@@ -233,8 +233,8 @@ void variable_neighborhood_search(instance *inst, double learning_rate, int max_
         printf("VNS FINAL COST: %lf\n", inst->best_sol->tour_cost);
         printf("----------------------------------------------------------------------------------------------\n\n");
     }
-    free(sol);
-    free(best_sol);
+    free_solution(sol);
+    free_solution(best_sol);
 }
 
 // Function to implement 2-opt heuristic for TSP that uses instance's best solution
@@ -306,7 +306,7 @@ void two_opt(solution *sol, instance *inst) {
 
     }
     memcpy(sol->tour, temp_sol->tour, (inst->nnodes + 1) * sizeof(double));
-    free(temp_sol);
+    free_solution(temp_sol);
 }
 
 // Function to implement 3-opt jump
@@ -351,6 +351,5 @@ void three_opt(solution *sol, instance *inst) {
     new_sol->tour[inst->nnodes] = new_sol->tour[0];
 
     memcpy(sol->tour, new_sol->tour, (inst->nnodes+1) * sizeof(double));
-    free(new_sol->tour);
-    free(new_sol);
+    free_solution(new_sol);
 }

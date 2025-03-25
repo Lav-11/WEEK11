@@ -27,7 +27,7 @@ int main(int argc, char **argv)
 	
 	//Nearest neighbor heuristic and gnuplot output
 	//grasp(&inst, false, 0.5, false);
-	nearest_neighbor(&inst, true);
+	nearest_neighbor(&inst, false);
 	png_solution_for_gnuplot(inst.best_sol, true, "../data/nearest_neighbor", &inst);
 	variable_neighborhood_search(&inst, 0.02, 100);
 	//png_solution_for_gnuplot(inst.best_sol, true, "../data/vns", &inst);
