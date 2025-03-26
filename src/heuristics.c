@@ -193,6 +193,12 @@ void variable_neighborhood_search(instance *inst, double learning_rate, int max_
         print_error("Memory allocation failed");
     }
 
+    // Open a file to save the costs
+    FILE *cost_file = fopen("../data/vns_costs.txt", "w");
+    if (cost_file == NULL) {
+        print_error("Failed to open file for writing costs");
+    }
+
     // Initialize the tour with the best solution
     memcpy(sol->tour, inst->best_sol->tour, (inst->nnodes + 1) * sizeof(double));
     if (VERBOSE >= 50){
@@ -210,13 +216,19 @@ void variable_neighborhood_search(instance *inst, double learning_rate, int max_
     double jumps_to_perform = 1.0;
     bool skip_two_opt = false;
     while(t1-inst->start_time < inst->time_limit) {
-        if (!skip_two_opt) two_opt(sol, inst);
+        if (!skip_two_opt) {
+            two_opt(sol, inst);
+            // Save the cost after 2-opt
+            fprintf(cost_file, "%lf\n", inst->best_sol->tour_cost);
+        }
         double running_tour_cost = inst->best_sol->tour_cost;
         if(running_tour_cost >= best_tour_cost-EPSILON) {
             memcpy(sol->tour, best_sol->tour, (inst->nnodes + 1) * sizeof(double));
             for(int i = 0; i < ((int)jumps_to_perform % max_jumps); i++) {
                 three_opt(sol, inst);
             }
+            // Save the cost after 3-opt
+            fprintf(cost_file, "%lf\n", sol->tour_cost);
             jumps_to_perform+=learning_rate;
             skip_two_opt = false;
         }
@@ -235,6 +247,9 @@ void variable_neighborhood_search(instance *inst, double learning_rate, int max_
     }
     free_solution(sol);
     free_solution(best_sol);
+
+    // Close the file
+    fclose(cost_file);
 }
 
 // Function to implement 2-opt heuristic for TSP that uses instance's best solution
@@ -317,7 +332,7 @@ void three_opt(solution *sol, instance *inst) {
 
     // Generate randomly 3 integers i, j, k such that i < j < k < nnodes
     int i, j, k;
-    srand(time(NULL)); // Seed the random number generator with the current time
+    srand(time(NULL) + rand()); // Seed the random number generator with the current time and a random value
     do {
         i = rand() % inst->nnodes;
         j = rand() % inst->nnodes;
@@ -351,5 +366,6 @@ void three_opt(solution *sol, instance *inst) {
     new_sol->tour[inst->nnodes] = new_sol->tour[0];
 
     memcpy(sol->tour, new_sol->tour, (inst->nnodes+1) * sizeof(double));
+    calculate_tour_cost(sol, inst);
     free_solution(new_sol);
 }

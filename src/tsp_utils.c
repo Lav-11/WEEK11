@@ -157,3 +157,66 @@ void free_solution(solution *sol) {
     free(sol->tour);
     free(sol);
 }
+
+// Function that read a file containing costs and create a png file containing a graph showing them of it using gnuplot
+void plot_costs(char *input_filename, char *output_filename) {
+    FILE *cost_file = fopen(input_filename, "r");
+    if (!cost_file) {
+        print_error("Error opening cost file");
+        return;
+    }
+
+    FILE *gnuplotPipe = popen("gnuplot", "w");
+    if (!gnuplotPipe) {
+        print_error("Error opening pipe to gnuplot");
+        fclose(cost_file);
+        return;
+    }
+
+    fprintf(gnuplotPipe, "set terminal png size 1280,900\n");
+    fprintf(gnuplotPipe, "set output '%s.png'\n", output_filename);
+    fprintf(gnuplotPipe, "set title 'Costs'\n");
+    fprintf(gnuplotPipe, "set xlabel 'Iteration'\n");
+    fprintf(gnuplotPipe, "set ylabel 'Cost'\n");
+    fprintf(gnuplotPipe, "plot '-' with lines linewidth 2 linecolor 'blue' title 'Cost', '-' with lines linewidth 2 linecolor 'red' title 'Minimum Cost'\n");
+
+    char line[1024];
+    int count = 0;
+    double min_cost = INFINITY;
+
+    // Plot the costs and track the minimum cost dynamically
+    while (fgets(line, sizeof(line), cost_file)) {
+        line[strcspn(line, "\r\n")] = 0;
+        double current_cost = atof(line);
+        if (current_cost < min_cost) {
+            min_cost = current_cost;
+        }
+        fprintf(gnuplotPipe, "%d %lf\n", count, current_cost);
+        count++;
+    }
+    fprintf(gnuplotPipe, "e\n");
+
+    // Reset file pointer to re-read the costs for plotting the dynamic minimum cost
+    rewind(cost_file);
+    count = 0;
+    min_cost = INFINITY;
+
+    while (fgets(line, sizeof(line), cost_file)) {
+        line[strcspn(line, "\r\n")] = 0;
+        double current_cost = atof(line);
+        if (current_cost < min_cost) {
+            min_cost = current_cost;
+        }
+        fprintf(gnuplotPipe, "%d %lf\n", count, min_cost);
+        count++;
+    }
+    fprintf(gnuplotPipe, "e\n");
+
+    fflush(gnuplotPipe);
+    pclose(gnuplotPipe);
+
+    if (fclose(cost_file) != 0) {
+        print_error("Error closing cost file");
+    }
+}
+

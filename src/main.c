@@ -29,7 +29,8 @@ int main(int argc, char **argv)
 	//grasp(&inst, false, 0.5, false);
 	nearest_neighbor(&inst, false);
 	png_solution_for_gnuplot(inst.best_sol, true, "../data/nearest_neighbor", &inst);
-	variable_neighborhood_search(&inst, 0.02, 100);
+	variable_neighborhood_search(&inst, 0.01, 5);
+	plot_costs("../data/vns_costs.txt", "../data/vns_costs");
 	//png_solution_for_gnuplot(inst.best_sol, true, "../data/vns", &inst);
 	
 

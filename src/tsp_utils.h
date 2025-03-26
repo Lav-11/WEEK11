@@ -72,4 +72,7 @@ void calculate_tour_cost(solution *sol,  instance *inst);
 // Function to free the memory of a solution struct
 void free_solution(solution *sol);
 
+// Function to read a file containing costs and plot a graph of it using gnuplot
+void plot_costs(char *input_filename, char *output_filename);
+
 #endif // TSP_UTILS_H
