@@ -252,6 +252,131 @@ void variable_neighborhood_search(instance *inst, double learning_rate, int max_
     fclose(cost_file);
 }
 
+// Function to implement Tabu Search for TSP
+void tabu_search(instance *inst, double tenure_dimension) {
+    double t1 = second();  // Start time
+    solution *sol = (solution *) malloc(sizeof(solution));
+    sol->tour = (double *) calloc(inst->nnodes+1, sizeof(double));
+    if (sol->tour == NULL) {
+        print_error("Memory allocation failed");
+    }
+
+    // Initialize the tour with the best solution
+    memcpy(sol->tour, inst->best_sol->tour, (inst->nnodes + 1) * sizeof(double));
+    calculate_tour_cost(sol, inst);
+
+    // Tabu list initialization
+    int tabu_list_length = (int)(tenure_dimension * inst->nnodes);
+    int (*tabu_list)[2][2] = calloc(tabu_list_length, sizeof(int[2][2]));
+    if (tabu_list == NULL) {
+        print_error("Memory allocation failed for tabu list");
+    }
+    int tabu_index = 0;
+
+    double best_tour_cost = sol->tour_cost;
+    solution *best_sol = (solution *) malloc(sizeof(solution));
+    best_sol->tour = (double *) calloc(inst->nnodes+1, sizeof(double));
+    if (best_sol->tour == NULL) {
+        print_error("Memory allocation failed");
+    }
+    memcpy(best_sol->tour, sol->tour, (inst->nnodes + 1) * sizeof(double));
+
+    while (t1 - inst->start_time < inst->time_limit) {
+        double best_neighbor_cost = 1e20;
+        int best_i = -1, best_j = -1;
+
+        // Explore all 2-opt moves
+        for (int i = 0; i < inst->nnodes; i++) {
+            for (int j = i + 1; j < inst->nnodes; j++) {
+                // Check if the move is tabu
+                bool is_tabu = false;
+                for (int k = 0; k < tabu_list_length; k++) {
+                    int i1 = (int)(sol->tour[i] - 1);
+                    int i2 = (int)(sol->tour[i + 1] - 1);
+                    int j1 = (int)(sol->tour[j] - 1);
+                    int j2 = (int)(sol->tour[j + 1] - 1);
+
+                    if ((tabu_list[k][0][0] == i1 && tabu_list[k][0][1] == i2 &&
+                         tabu_list[k][1][0] == j1 && tabu_list[k][1][1] == j2) ||
+                        (tabu_list[k][0][0] == j1 && tabu_list[k][0][1] == j2 &&
+                         tabu_list[k][1][0] == i1 && tabu_list[k][1][1] == i2) ||
+                        (tabu_list[k][0][0] == i2 && tabu_list[k][0][1] == i1 &&
+                         tabu_list[k][1][0] == j2 && tabu_list[k][1][1] == j1) ||
+                        (tabu_list[k][0][0] == j2 && tabu_list[k][0][1] == j1 &&
+                         tabu_list[k][1][0] == i2 && tabu_list[k][1][1] == i1) ||
+                        (tabu_list[k][0][0] == i1 && tabu_list[k][0][1] == i2 &&
+                         tabu_list[k][1][0] == j2 && tabu_list[k][1][1] == j1) ||
+                        (tabu_list[k][0][0] == j2 && tabu_list[k][0][1] == j1 &&
+                         tabu_list[k][1][0] == i1 && tabu_list[k][1][1] == i2) ||
+                        (tabu_list[k][0][0] == i2 && tabu_list[k][0][1] == i1 &&
+                         tabu_list[k][1][0] == j1 && tabu_list[k][1][1] == j2) ||
+                        (tabu_list[k][0][0] == j1 && tabu_list[k][0][1] == j2 &&
+                         tabu_list[k][1][0] == i2 && tabu_list[k][1][1] == i1)) {
+                        is_tabu = true;
+                        continue;
+                    }
+                }
+
+                double cost_delta = inst->distances[(int)(sol->tour[i] - 1) * inst->nnodes + (int)(sol->tour[j] - 1)] +
+                                    inst->distances[(int)(sol->tour[i + 1] - 1) * inst->nnodes + (int)(sol->tour[j + 1] - 1)] -
+                                    inst->distances[(int)(sol->tour[i] - 1) * inst->nnodes + (int)(sol->tour[i + 1] - 1)] -
+                                    inst->distances[(int)(sol->tour[j] - 1) * inst->nnodes + (int)(sol->tour[j + 1] - 1)];
+
+                // Accept the move if it's not tabu or if it improves the best solution
+                if (sol->tour_cost + cost_delta < best_neighbor_cost-EPSILON) {
+                    best_neighbor_cost = sol->tour_cost + cost_delta;
+                    best_i = i;
+                    best_j = j;
+                }             
+            }
+        }
+
+        // Perform the best move
+        if (best_i != -1 && best_j != -1) {
+            // Reverse the segment between best_i+1 and best_j
+            int start = best_i + 1;
+            int end = best_j;
+            while (start < end) {
+                double temp = sol->tour[start];
+                sol->tour[start] = sol->tour[end];
+                sol->tour[end] = temp;
+                start++;
+                end--;
+            }
+
+            // Update the tabu list
+            tabu_list[tabu_index][0][0] = (int)(sol->tour[best_i] - 1);
+            tabu_list[tabu_index][0][1] = (int)(sol->tour[best_i + 1] - 1);
+            tabu_list[tabu_index][1][0] = (int)(sol->tour[best_j] - 1);
+            tabu_list[tabu_index][1][1] = (int)(sol->tour[best_j + 1] - 1);
+            tabu_index = (tabu_index + 1) % tabu_list_length;
+
+            // Update the solution cost
+            calculate_tour_cost(sol, inst);
+
+            // Update the best solution if necessary
+            if (sol->tour_cost < best_tour_cost - EPSILON) {
+                memcpy(best_sol->tour, sol->tour, (inst->nnodes + 1) * sizeof(double));
+                best_tour_cost = sol->tour_cost;
+            }
+        }
+
+        t1 = second();
+    }
+
+    // Copy the best solution back to the instance
+    memcpy(inst->best_sol->tour, best_sol->tour, (inst->nnodes + 1) * sizeof(double));
+    inst->best_sol->tour_cost = best_tour_cost;
+
+    if (VERBOSE >= 30) {
+        printf("TABU SEARCH FINAL COST: %lf\n", best_tour_cost);
+    }
+
+    free_solution(sol);
+    free_solution(best_sol);
+    free(tabu_list);
+}
+
 // Function to implement 2-opt heuristic for TSP that uses instance's best solution
 void two_opt(solution *sol, instance *inst) {
     double t1 = second();  // Start time

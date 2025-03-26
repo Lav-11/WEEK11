@@ -22,6 +22,9 @@ void grasp(instance *inst, bool use_two_opt, double deviating_probability, bool 
 // Function to implement the variable neighborhood search for the TSP
 void variable_neighborhood_search(instance *inst, double learning_rate, int max_jumps);
 
+// Function to implement the tabu search for the TSP
+void tabu_search(instance *inst, double tenure_dimension);
+
 // Function to implement the 2-opt heuristic for the TSP
 void two_opt(solution *sol, instance *inst);
 
