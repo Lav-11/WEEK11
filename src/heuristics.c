@@ -67,13 +67,16 @@ void nearest_neighbor(instance *inst, bool use_two_opt) {
             if (VERBOSE >= 50) printf("Time limit reached in NN\n");
             if (VERBOSE >= 30){
                 printf("NEAREST NEIGHBOR BEST FINAL COST: %lf\n", best_nn_tour_cost);
-                if (use_two_opt) printf("UPDATED COST AFTER 2-OPT: %lf\n", inst->best_sol->tour_cost);
+                if (use_two_opt) printf("UPDATED COST AFTER 2-OPT: %lf\n", sol->tour_cost);
             }
             free(sol);
             free(visited);
             return;
         }
-        if (use_two_opt) two_opt(sol, inst);
+        if (use_two_opt) {
+            two_opt(sol, 1e20, inst);
+            check_if_best_solution(sol, inst);
+        }
 
 
         free_solution(sol);
@@ -185,13 +188,9 @@ void nearest_neighbor(instance *inst, bool use_two_opt) {
 // }
 
 //Function to immpement variable neighborhood search(VNS) for TSP
-void variable_neighborhood_search(instance *inst, double learning_rate, int max_jumps) {
-    double t1 = second();  // Start time
-    solution *sol = (solution *) malloc(sizeof(solution));
-    sol->tour = (double *) calloc(inst->nnodes+1, sizeof(double));
-    if (sol->tour == NULL){
-        print_error("Memory allocation failed");
-    }
+void variable_neighborhood_search(solution *sol, double timelimit, const instance *inst, double learning_rate, int max_jumps) {
+    double t_start = second();  // Start time
+    double time_now = second();
 
     // Open a file to save the costs
     FILE *cost_file = fopen("../data/vns_costs.txt", "w");
@@ -200,7 +199,6 @@ void variable_neighborhood_search(instance *inst, double learning_rate, int max_
     }
 
     // Initialize the tour with the best solution
-    memcpy(sol->tour, inst->best_sol->tour, (inst->nnodes + 1) * sizeof(double));
     if (VERBOSE >= 50){
         printf("----------------------------------------------------------------------------------------------\n\n");
         printf("Variable Neighborhood Search calculations\n");
@@ -215,9 +213,9 @@ void variable_neighborhood_search(instance *inst, double learning_rate, int max_
     double best_tour_cost = inst->best_sol->tour_cost;
     double jumps_to_perform = 1.0;
     bool skip_two_opt = false;
-    while(t1-inst->start_time < inst->time_limit) {
+    while(time_now - t_start < timelimit) {
         if (!skip_two_opt) {
-            two_opt(sol, inst);
+            two_opt(sol, timelimit-(time_now-t_start), inst);
             // Save the cost after 2-opt
             fprintf(cost_file, "%lf\n", inst->best_sol->tour_cost);
         }
@@ -239,13 +237,13 @@ void variable_neighborhood_search(instance *inst, double learning_rate, int max_
             jumps_to_perform = 1.0;
             skip_two_opt = true;
         }
-        t1 = second();
+        time_now = second();
     }
     if (VERBOSE >= 30){
-        printf("VNS FINAL COST: %lf\n", inst->best_sol->tour_cost);
+        calculate_tour_cost(best_sol, inst);
+        printf("VNS FINAL COST: %lf\n", best_sol->tour_cost);
         printf("----------------------------------------------------------------------------------------------\n\n");
     }
-    free_solution(sol);
     free_solution(best_sol);
 
     // Close the file
@@ -253,18 +251,14 @@ void variable_neighborhood_search(instance *inst, double learning_rate, int max_
 }
 
 // Function to implement Tabu Search for TSP
-void tabu_search(instance *inst, double min_tenure_dimension, double max_tenure_dimension, double increase_ten_dim_rate) {
-    double t1 = second();  // Start time
-    solution *sol = (solution *) malloc(sizeof(solution));
-    sol->tour = (double *) calloc(inst->nnodes+1, sizeof(double));
-    if (sol->tour == NULL) {
-        print_error("Memory allocation failed");
+void tabu_search(solution *sol, double timelimit, const instance *inst, double min_tenure_dimension, double max_tenure_dimension, double increase_ten_dim_rate) {
+    double t_start = second();  // Start time
+    double time_now = second();
+
+    if (VERBOSE >= 50){
+        printf("----------------------------------------------------------------------------------------------\n\n");
+        printf("Tabu Search calculations\n");
     }
-
-    // Initialize the tour with the best solution
-    memcpy(sol->tour, inst->best_sol->tour, (inst->nnodes + 1) * sizeof(double));
-    calculate_tour_cost(sol, inst);
-
     // Tabu list initialization as a 2D matrix
     int max_tenure_length = (int)(max_tenure_dimension * inst->nnodes) + 2;
     int min_tenure_length = (int)(min_tenure_dimension * inst->nnodes) + 2;
@@ -279,13 +273,14 @@ void tabu_search(instance *inst, double min_tenure_dimension, double max_tenure_
         }
     }
 
-    double best_tour_cost = sol->tour_cost;
+    // Solution to store the best outcome found so far
     solution *best_sol = (solution *) malloc(sizeof(solution));
     best_sol->tour = (double *) calloc(inst->nnodes+1, sizeof(double));
-    if (best_sol->tour == NULL) {
-        print_error("Memory allocation failed");
+    if (best_sol->tour == NULL){
+        print_error("Memory allocation failed for best solution tour");
     }
     memcpy(best_sol->tour, sol->tour, (inst->nnodes + 1) * sizeof(double));
+    best_sol->tour_cost = sol->tour_cost;
 
     // Open a file to save the costs
     FILE *cost_file = fopen("../data/tabu_costs.txt", "w");
@@ -293,7 +288,7 @@ void tabu_search(instance *inst, double min_tenure_dimension, double max_tenure_
         print_error("Failed to open file for writing costs");
     }
 
-    while (t1 - inst->start_time < inst->time_limit) {
+    while (time_now - t_start < timelimit) {
         double best_neighbor_cost = 1e20;
         int best_i = -1, best_j = -1;
 
@@ -347,11 +342,13 @@ void tabu_search(instance *inst, double min_tenure_dimension, double max_tenure_
             // Update the solution cost
             calculate_tour_cost(sol, inst);
             fprintf(cost_file, "%lf\n", sol->tour_cost);
+            if (sol->tour_cost < best_sol->tour_cost - EPSILON) {
+                memcpy(best_sol->tour, sol->tour, (inst->nnodes + 1) * sizeof(double));
+                best_sol->tour_cost = sol->tour_cost;
+            }
 
-            // Update the best solution if necessary
-            check_if_best_solution(sol, inst);
         } else {
-            printf("No better neighbor found\n");
+            printf("ERROR OCCURED IN FINDING BEST i AND BEST j\n");
         }
 
         // Decrease tenure values
@@ -380,26 +377,27 @@ void tabu_search(instance *inst, double min_tenure_dimension, double max_tenure_
             }
         }
 
-        t1 = second();
+        time_now = second();
     }
 
     if (VERBOSE >= 30) {
-        printf("TABU SEARCH FINAL COST: %lf\n", inst->best_sol->tour_cost);
+        printf("TABU SEARCH FINAL COST: %lf\n", best_sol->tour_cost);
     }
 
-    free_solution(sol);
-    free_solution(best_sol);
     for (int i = 0; i < inst->nnodes; i++) {
         free(tenure_matrix[i]);
     }
     free(tenure_matrix);
+    free_solution(best_sol);
 
     fclose(cost_file);
 }
 
+
 // Function to implement 2-opt heuristic for TSP that uses instance's best solution
-void two_opt(solution *sol, instance *inst) {
-    double t1 = second();  // Start time
+void two_opt(solution *sol, double timelimit, const instance *inst) {
+    double t_start = second();  // Start time
+    double time_now = second();
 
     solution *temp_sol = (solution *) malloc(sizeof(solution));
     temp_sol->tour = (double *) calloc(inst->nnodes+1, sizeof(double));
@@ -442,35 +440,34 @@ void two_opt(solution *sol, instance *inst) {
                         fprintf(stdout, "MODIFIED COST: %lf\n", temp_sol->tour_cost);
                     }
                     calculate_tour_cost(temp_sol, inst);
-                    check_if_best_solution(temp_sol, inst);
 
-                    if (inst->best_sol->tour_cost == temp_sol->tour_cost) {
-                        // Update time left only if a new best solution is found
-                        double time_now = second();
+                    // Update time left only if a new best solution is found
+                    double time_now = second();
 
-                        // Check if the time limit has been reached
-                        if (time_now-inst->start_time > inst->time_limit) {
-                            if (VERBOSE >= 50) printf("Time limit reached in two_opt\n");
-                            memcpy(sol->tour, temp_sol->tour, (inst->nnodes + 1) * sizeof(double));
-                            free(temp_sol);
-                            return;
-                        }
+                    // Check if the time limit has been reached
+                    if (time_now-t_start > timelimit) {
+                        if (VERBOSE >= 50) printf("Time limit reached in two_opt\n");
+                        memcpy(sol->tour, temp_sol->tour, (inst->nnodes + 1) * sizeof(double));
+                        calculate_tour_cost(sol, inst);
+                        free(temp_sol);
+                        return;
                     }
                 }
             }
         }
     }
     if (VERBOSE >= 60){
-        fprintf(stdout, "2-opt FINAL COST: %lf\n", inst->best_sol->tour_cost);
+        fprintf(stdout, "2-opt FINAL COST: %lf\n", temp_sol->tour_cost);
         printf("----------------------------------------------------------------------------------------------\n\n");
 
     }
     memcpy(sol->tour, temp_sol->tour, (inst->nnodes + 1) * sizeof(double));
+    calculate_tour_cost(sol, inst);
     free_solution(temp_sol);
 }
 
 // Function to implement 3-opt jump
-void three_opt(solution *sol, instance *inst) {
+void three_opt(solution *sol, const instance *inst) {
     if (VERBOSE >= 60){
         printf("3-opt jump called");
     }

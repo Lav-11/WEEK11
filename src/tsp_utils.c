@@ -90,7 +90,7 @@ void png_solution_for_gnuplot(solution *sol, const bool save_dat_file, char *out
 
 
 // Function to calculate tour cost
-void calculate_tour_cost(solution *sol, instance *inst) {
+void calculate_tour_cost(solution *sol, const instance *inst) {
     double total_cost = 0.0;
     for (int i = 0; i < inst->nnodes; i++) {
         int from = (int)sol->tour[i] - 1;
