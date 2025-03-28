@@ -29,8 +29,8 @@ int main(int argc, char **argv)
 	//grasp(&inst, false, 0.5, false);
 	nearest_neighbor(&inst, false);
 	png_solution_for_gnuplot(inst.best_sol, true, "../data/nearest_neighbor", &inst);
-	tabu_search(&inst, 10);
-	plot_costs("../data/vns_costs.txt", "../data/vns_costs");
+	tabu_search(&inst, 0.1, 0.5, 1);
+	plot_costs("../data/tabu_costs.txt", "../data/tabu_costs");
 	//png_solution_for_gnuplot(inst.best_sol, true, "../data/vns", &inst);
 	
 
@@ -128,7 +128,7 @@ void parse_command_line(int argc, char** argv, instance *inst)
 	strcpy(inst->input_file, "NULL");
 	inst->seed = 0; 
 	inst->nnodes = -1; 
-	inst->time_limit = 20; 
+	inst->time_limit = 240; 
 	inst->best_sol = (solution *) malloc(sizeof(solution));
 	if (!inst->best_sol) {
 		print_error("Memory allocation failed for best_sol");

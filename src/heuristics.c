@@ -253,7 +253,7 @@ void variable_neighborhood_search(instance *inst, double learning_rate, int max_
 }
 
 // Function to implement Tabu Search for TSP
-void tabu_search(instance *inst, double tenure_dimension) {
+void tabu_search(instance *inst, double min_tenure_dimension, double max_tenure_dimension, double increase_ten_dim_rate) {
     double t1 = second();  // Start time
     solution *sol = (solution *) malloc(sizeof(solution));
     sol->tour = (double *) calloc(inst->nnodes+1, sizeof(double));
@@ -265,13 +265,19 @@ void tabu_search(instance *inst, double tenure_dimension) {
     memcpy(sol->tour, inst->best_sol->tour, (inst->nnodes + 1) * sizeof(double));
     calculate_tour_cost(sol, inst);
 
-    // Tabu list initialization
-    int tabu_list_length = (int)(tenure_dimension * inst->nnodes);
-    int (*tabu_list)[2][2] = calloc(tabu_list_length, sizeof(int[2][2]));
-    if (tabu_list == NULL) {
-        print_error("Memory allocation failed for tabu list");
+    // Tabu list initialization as a 2D matrix
+    int max_tenure_length = (int)(max_tenure_dimension * inst->nnodes) + 2;
+    int min_tenure_length = (int)(min_tenure_dimension * inst->nnodes) + 2;
+    int current_tenure_length = min_tenure_length;
+    bool is_tenure_increasing = true;
+    int iteration_count = 0;
+    int **tenure_matrix = (int **)calloc(inst->nnodes, sizeof(int *));
+    for (int i = 0; i < inst->nnodes; i++) {
+        tenure_matrix[i] = (int *)calloc(inst->nnodes, sizeof(int));
+        if (tenure_matrix[i] == NULL) {
+            print_error("Memory allocation failed for tabu matrix");
+        }
     }
-    int tabu_index = 0;
 
     double best_tour_cost = sol->tour_cost;
     solution *best_sol = (solution *) malloc(sizeof(solution));
@@ -281,6 +287,12 @@ void tabu_search(instance *inst, double tenure_dimension) {
     }
     memcpy(best_sol->tour, sol->tour, (inst->nnodes + 1) * sizeof(double));
 
+    // Open a file to save the costs
+    FILE *cost_file = fopen("../data/tabu_costs.txt", "w");
+    if (cost_file == NULL) {
+        print_error("Failed to open file for writing costs");
+    }
+
     while (t1 - inst->start_time < inst->time_limit) {
         double best_neighbor_cost = 1e20;
         int best_i = -1, best_j = -1;
@@ -289,50 +301,38 @@ void tabu_search(instance *inst, double tenure_dimension) {
         for (int i = 0; i < inst->nnodes; i++) {
             for (int j = i + 1; j < inst->nnodes; j++) {
                 // Check if the move is tabu
-                bool is_tabu = false;
-                for (int k = 0; k < tabu_list_length; k++) {
-                    int i1 = (int)(sol->tour[i] - 1);
-                    int i2 = (int)(sol->tour[i + 1] - 1);
-                    int j1 = (int)(sol->tour[j] - 1);
-                    int j2 = (int)(sol->tour[j + 1] - 1);
+                int i1 = (int)(sol->tour[i] - 1);
+                int i2 = (int)(sol->tour[i + 1] - 1);
+                int j1 = (int)(sol->tour[j] - 1);
+                int j2 = (int)(sol->tour[j + 1] - 1);
 
-                    if ((tabu_list[k][0][0] == i1 && tabu_list[k][0][1] == i2 &&
-                         tabu_list[k][1][0] == j1 && tabu_list[k][1][1] == j2) ||
-                        (tabu_list[k][0][0] == j1 && tabu_list[k][0][1] == j2 &&
-                         tabu_list[k][1][0] == i1 && tabu_list[k][1][1] == i2) ||
-                        (tabu_list[k][0][0] == i2 && tabu_list[k][0][1] == i1 &&
-                         tabu_list[k][1][0] == j2 && tabu_list[k][1][1] == j1) ||
-                        (tabu_list[k][0][0] == j2 && tabu_list[k][0][1] == j1 &&
-                         tabu_list[k][1][0] == i2 && tabu_list[k][1][1] == i1) ||
-                        (tabu_list[k][0][0] == i1 && tabu_list[k][0][1] == i2 &&
-                         tabu_list[k][1][0] == j2 && tabu_list[k][1][1] == j1) ||
-                        (tabu_list[k][0][0] == j2 && tabu_list[k][0][1] == j1 &&
-                         tabu_list[k][1][0] == i1 && tabu_list[k][1][1] == i2) ||
-                        (tabu_list[k][0][0] == i2 && tabu_list[k][0][1] == i1 &&
-                         tabu_list[k][1][0] == j1 && tabu_list[k][1][1] == j2) ||
-                        (tabu_list[k][0][0] == j1 && tabu_list[k][0][1] == j2 &&
-                         tabu_list[k][1][0] == i2 && tabu_list[k][1][1] == i1)) {
-                        is_tabu = true;
-                        continue;
-                    }
-                }
+                bool is_tabu = (tenure_matrix[i1][j1] > 0 || tenure_matrix[i2][j2] > 0 || tenure_matrix[j1][i1] > 0 || tenure_matrix[j2][i2] > 0);
 
-                double cost_delta = inst->distances[(int)(sol->tour[i] - 1) * inst->nnodes + (int)(sol->tour[j] - 1)] +
-                                    inst->distances[(int)(sol->tour[i + 1] - 1) * inst->nnodes + (int)(sol->tour[j + 1] - 1)] -
-                                    inst->distances[(int)(sol->tour[i] - 1) * inst->nnodes + (int)(sol->tour[i + 1] - 1)] -
-                                    inst->distances[(int)(sol->tour[j] - 1) * inst->nnodes + (int)(sol->tour[j + 1] - 1)];
+                double cost_delta = inst->distances[i1 * inst->nnodes + j1] +
+                                    inst->distances[i2 * inst->nnodes + j2] -
+                                    inst->distances[i1 * inst->nnodes + i2] -
+                                    inst->distances[j1 * inst->nnodes + j2];
 
                 // Accept the move if it's not tabu or if it improves the best solution
-                if (sol->tour_cost + cost_delta < best_neighbor_cost-EPSILON) {
+                if (sol->tour_cost + cost_delta < best_neighbor_cost - EPSILON && !is_tabu && abs(cost_delta) > EPSILON) {
                     best_neighbor_cost = sol->tour_cost + cost_delta;
                     best_i = i;
                     best_j = j;
-                }             
+                }
             }
         }
 
         // Perform the best move
         if (best_i != -1 && best_j != -1) {
+            // Update the tabu matrix
+            int i1 = (int)(sol->tour[best_i] - 1);
+            int i2 = (int)(sol->tour[best_i + 1] - 1);
+            int j1 = (int)(sol->tour[best_j] - 1);
+            int j2 = (int)(sol->tour[best_j + 1] - 1);
+
+            tenure_matrix[i1][i2] = current_tenure_length;
+            tenure_matrix[j1][j2] = current_tenure_length;
+
             // Reverse the segment between best_i+1 and best_j
             int start = best_i + 1;
             int end = best_j;
@@ -344,37 +344,57 @@ void tabu_search(instance *inst, double tenure_dimension) {
                 end--;
             }
 
-            // Update the tabu list
-            tabu_list[tabu_index][0][0] = (int)(sol->tour[best_i] - 1);
-            tabu_list[tabu_index][0][1] = (int)(sol->tour[best_i + 1] - 1);
-            tabu_list[tabu_index][1][0] = (int)(sol->tour[best_j] - 1);
-            tabu_list[tabu_index][1][1] = (int)(sol->tour[best_j + 1] - 1);
-            tabu_index = (tabu_index + 1) % tabu_list_length;
-
             // Update the solution cost
             calculate_tour_cost(sol, inst);
+            fprintf(cost_file, "%lf\n", sol->tour_cost);
 
             // Update the best solution if necessary
-            if (sol->tour_cost < best_tour_cost - EPSILON) {
-                memcpy(best_sol->tour, sol->tour, (inst->nnodes + 1) * sizeof(double));
-                best_tour_cost = sol->tour_cost;
+            check_if_best_solution(sol, inst);
+        } else {
+            printf("No better neighbor found\n");
+        }
+
+        // Decrease tenure values
+        for (int i = 0; i < inst->nnodes; i++) {
+            for (int j = 0; j < inst->nnodes; j++) {
+                if (tenure_matrix[i][j] > 0) {
+                    tenure_matrix[i][j]--;
+                }
+            }
+        }
+
+        // Dynamically adjust the tabu list length based on increase_ten_dim_rate
+        iteration_count++;
+        if (iteration_count >= (int)(1.0 / increase_ten_dim_rate)) {
+            iteration_count = 0;
+            if (is_tenure_increasing) {
+                current_tenure_length++;
+                if (current_tenure_length > max_tenure_length) {
+                    is_tenure_increasing = false;
+                }
+            } else {
+                current_tenure_length--;
+                if (current_tenure_length < min_tenure_length) {
+                    is_tenure_increasing = true;
+                }
             }
         }
 
         t1 = second();
     }
 
-    // Copy the best solution back to the instance
-    memcpy(inst->best_sol->tour, best_sol->tour, (inst->nnodes + 1) * sizeof(double));
-    inst->best_sol->tour_cost = best_tour_cost;
-
     if (VERBOSE >= 30) {
-        printf("TABU SEARCH FINAL COST: %lf\n", best_tour_cost);
+        printf("TABU SEARCH FINAL COST: %lf\n", inst->best_sol->tour_cost);
     }
 
     free_solution(sol);
     free_solution(best_sol);
-    free(tabu_list);
+    for (int i = 0; i < inst->nnodes; i++) {
+        free(tenure_matrix[i]);
+    }
+    free(tenure_matrix);
+
+    fclose(cost_file);
 }
 
 // Function to implement 2-opt heuristic for TSP that uses instance's best solution
