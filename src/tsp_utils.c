@@ -32,7 +32,6 @@ void calculate_distances(instance *inst) {
     inst->distances = (double *) calloc(inst->nnodes * inst->nnodes, sizeof(double));
     if (inst->distances == NULL){
         print_error("Memory allocation failed");
-        return;
     }
     for (int i = 0; i < inst->nnodes; i++) {
         for (int j = 0; j < inst->nnodes; j++) {
@@ -112,12 +111,12 @@ bool check_tour_feasability(solution *sol, instance *inst) {
         if (sol->tour[i] < 1 || sol->tour[i] > inst->nnodes) {
             free(visited);  
             printf("Node %d out of bounds\n", (int)sol->tour[i]);
-            return false;
+            print_error("Node out of bounds in tour");
         }
         if (visited[(int)sol->tour[i] - 1]) {
             free(visited);  
             printf("Node %d visited more than once\n", (int)sol->tour[i]);
-            return false;
+            print_error("Node visited more than once in tour");
         }
         visited[(int)sol->tour[i] - 1] = true;
     }
@@ -126,7 +125,7 @@ bool check_tour_feasability(solution *sol, instance *inst) {
         if (!visited[i]) {
             free(visited);  
             printf("Node %d not visited\n", (int)sol->tour[i]);
-            return false;
+            print_error("Node not visited in tour");
         }
     }
 
@@ -137,7 +136,7 @@ bool check_tour_feasability(solution *sol, instance *inst) {
 // Function to compare input tour to best solution
 void check_if_best_solution(solution *sol, instance *inst) {
     if (sol->tour_cost < inst->best_sol->tour_cost) {  
-        if (check_tour_feasability(sol, inst)){      //Divide the 2 if for better efficiency  
+        if (check_tour_feasability(sol, inst)){        
             if (VERBOSE >= 60){
             printf("New best solution found with cost: %.10f\n", sol->tour_cost);  
             }
@@ -184,7 +183,7 @@ void plot_costs(char *input_filename, char *output_filename) {
     int count = 0;
     double min_cost = INFINITY;
 
-    // Plot the costs and track the minimum cost dynamically
+    // track the minimum cost dynamically
     while (fgets(line, sizeof(line), cost_file)) {
         line[strcspn(line, "\r\n")] = 0;
         double current_cost = atof(line);
@@ -196,7 +195,7 @@ void plot_costs(char *input_filename, char *output_filename) {
     }
     fprintf(gnuplotPipe, "e\n");
 
-    // Reset file pointer to re-read the costs for plotting the dynamic minimum cost
+    // Reset file pointer to re-read the costs
     rewind(cost_file);
     count = 0;
     min_cost = INFINITY;
@@ -221,7 +220,6 @@ void plot_costs(char *input_filename, char *output_filename) {
 }
 
 // Function that copy the entire content of an instance struct into another one
-
 instance *copy_instance(const instance *src) {
     instance *dest = (instance *)malloc(sizeof(instance));
     if (!dest) {
@@ -267,12 +265,29 @@ instance *copy_instance(const instance *src) {
 }
 
 // Function that free the entire content of an instance struct
-void free_instance(instance *inst) {
-    free(inst->xcoord);
-    free(inst->ycoord);
-    free(inst->distances);
-    free(inst->best_sol->tour);
-    free(inst->best_sol);
-    free(inst);
+void free_instance(instance *inst, const bool free_inst) {
+    if (inst->xcoord) {
+        free(inst->xcoord);
+        inst->xcoord = NULL;
+    }
+    if (inst->ycoord) {
+        free(inst->ycoord);
+        inst->ycoord = NULL; 
+    }
+    if (inst->distances) {
+        free(inst->distances);
+        inst->distances = NULL;
+    }
+    if (inst->best_sol) {
+        if (inst->best_sol->tour) {
+            free(inst->best_sol->tour);
+            inst->best_sol->tour = NULL;
+        }
+        free(inst->best_sol);
+        inst->best_sol = NULL;
+    }
+    if (free_inst) {
+        free(inst);
+    }
 }
 

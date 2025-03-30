@@ -14,7 +14,10 @@
 // Function prototypes
 
 // Function to find the nearest neighbor tour for the TSP
-void nearest_neighbor(instance *inst, bool use_two_opt);
+void nearest_neighbor(instance *inst, int starting_node, bool use_two_opt);
+
+// Function to calculate the best nearest neighbor tour for the TSP
+void best_nearest_neighbor(instance *inst, bool use_two_opt);
 
 // Function to implement the GRASP heuristic for the TSP
 void grasp(instance *inst, bool use_two_opt, double deviating_probability, bool prob_proportional_to_cost);

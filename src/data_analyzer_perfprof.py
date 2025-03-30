@@ -4,6 +4,8 @@ from collections import defaultdict
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
+# python3 ../src/perfprof.py -M 1.05 ../data/output.csv ../data/output.pdf
+
 def process_csv(input_file, output_file):
     data = defaultdict(dict)
     algorithms = set()

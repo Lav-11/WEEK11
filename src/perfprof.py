@@ -44,27 +44,28 @@ class CmdLineParser(object):
 
 def readTable(fp, delimiter):
     """
-    read a CSV file with performance profile specification
-    the format is as follows:
-    ncols algo1 algo2 ...
-    nome_istanza tempo(algo1) tempo(algo2) ...
-    ...
+    Read a CSV file with performance profile specification.
+    The format is as follows:
+    Header: algo1, algo2, ...
+    Rows: instance_name, time(algo1), time(algo2), ...
     """
-    firstline = fp.readline().strip().split(delimiter)
-    ncols = int(firstline[0])
-    assert(ncols <= len(markers))
-    cnames = firstline[1:]
+    # Read the first line as column names
+    firstline = fp.readline().strip().split(delimiter if delimiter else ',')
+    ncols = len(firstline) - 1  # Number of algorithms (excluding the first column)
+    assert ncols <= len(markers), "Too many columns for available markers"
+    cnames = firstline[1:]  # Algorithm names (skip the first column)
+
     rnames = []
     rows = []
+
     for row in fp:
-        row = row.strip().split(delimiter)
-        rnames.append(row[0])
-        rdata = np.empty(ncols)
-        for j in range(ncols):
-            rdata[j] = float(row[j + 1])
+        row = row.strip().split(delimiter if delimiter else ',')
+        rnames.append(row[0])  # First column is the row name (instance name)
+        rdata = np.array([float(x) for x in row[1:]])  # Remaining columns are data
         rows.append(rdata)
+
     data = np.array(rows)
-    return (rnames, cnames, data)
+    return rnames, cnames, data
 
 
 def main():

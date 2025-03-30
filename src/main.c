@@ -8,50 +8,8 @@
 #include "heuristics.h"
 #include "chrono.h"
 #include "pthread.h"
+#include "multithread_utils.h"
         
-
-typedef struct {
-	int sequential_seed;
-
-
-	bool use_tabu_search;
-
-    double min_tenure_dimension_lower_bound;
-	double min_tenure_dimension_higher_bound;
-	double min_tenure_dimension_delta;
-
-    double max_tenure_dimension_lower_bound;
-	double max_tenure_dimension_higher_bound;
-	double max_tenure_dimension_delta;
-
-    double increase_ten_dim_rate_lower_bound;
-	double increase_ten_dim_rate_higher_bound;
-	double increase_ten_dim_rate_delta;
-
-
-    bool use_vns_search;
-
-    double learning_rate_lower_bound;
-	double learning_rate_higher_bound;
-	double learning_rate_delta;
-
-    int max_jumps_lower_bound;
-	int max_jumps_higher_bound;
-	int max_jumps_delta;
-} ConfigParams;
-
-typedef struct {
-	instance *inst;
-	ConfigParams params;
-	solution *sol;
-	double min_tenure;
-	double max_tenure;
-	double increase_rate;
-	double learning_rate;
-	int max_jumps;
-	bool is_tabu_search;
-	bool is_vns_search;
-} ThreadData;
 
 void read_input(instance *inst);
 void parse_command_line(int argc, char **argv, instance *inst,
@@ -72,63 +30,38 @@ int main(int argc, char **argv)
 
     double t1 = second(); 
 
-	ConfigParams params = {
-		.sequential_seed = 0,
-		.use_tabu_search = false,
-		.min_tenure_dimension_lower_bound = 0.0,
-		.min_tenure_dimension_higher_bound = 0.3,
-		.min_tenure_dimension_delta = 0.1,
-		.max_tenure_dimension_lower_bound = 0.3,
-		.max_tenure_dimension_higher_bound = 0.7,
-		.max_tenure_dimension_delta = 0.1,
-		.increase_ten_dim_rate_lower_bound = 1.0,
-		.increase_ten_dim_rate_higher_bound = 2.0,
-		.increase_ten_dim_rate_delta = 0.5,
-		.use_vns_search = false,
-		.learning_rate_lower_bound = 0.1,
-		.learning_rate_higher_bound = 0.1,
-		.learning_rate_delta = 3,
-		.max_jumps_lower_bound = 2,
-		.max_jumps_higher_bound = 3,
-		.max_jumps_delta = 1
-	};
+	ConfigParams params;
+	set_default_params(&params); 
 
-    // General calls for initial calculations and input reading
-	pthread_t threads[1000]; // Adjust size as needed
+	pthread_t threads[1000];
 	ThreadData thread_data[1000];
 	int thread_count = 0;
 
 	for (int i = 0; i <= params.sequential_seed; i++) {
 		instance inst;
-		inst.start_time = t1;
 		parse_command_line(argc, argv, &inst, &params);
-		inst.seed = inst.seed + i; // Increment the seed for each iteration
-		printf("Using seed: %d\n", inst.seed);
+		inst.start_time = t1;
+		inst.seed = inst.seed + i; 
 		read_input(&inst);  
 		calculate_distances(&inst);
-		nearest_neighbor(&inst, false);
+		nearest_neighbor(&inst, 0, false);
 
-		if (VERBOSE >= 1) {
+		if (VERBOSE >= 30) {
+			printf("Using seed: %d\n", inst.seed);
 			printf("Best tour cost after nearest neighbor: %lf\n", inst.best_sol->tour_cost);
 		}
 
+
 		if (params.use_tabu_search || params.use_vns_search) {
-			// Create threads for Tabu Search
 			if (params.use_tabu_search) {
-				for (double min_tenure = params.min_tenure_dimension_lower_bound;
-					min_tenure <= params.min_tenure_dimension_higher_bound;
-					min_tenure += params.min_tenure_dimension_delta) {
-					for (double max_tenure = params.max_tenure_dimension_lower_bound;
-						max_tenure <= params.max_tenure_dimension_higher_bound;
-						max_tenure += params.max_tenure_dimension_delta) {
-						for (double increase_rate = params.increase_ten_dim_rate_lower_bound;
-							increase_rate <= params.increase_ten_dim_rate_higher_bound;
-							increase_rate += params.increase_ten_dim_rate_delta) {
+				for (double min_tenure = params.min_tenure_dimension_lower_bound; min_tenure <= params.min_tenure_dimension_higher_bound + EPSILON; min_tenure += params.min_tenure_dimension_delta) {
+					for (double max_tenure = params.max_tenure_dimension_lower_bound; max_tenure <= params.max_tenure_dimension_higher_bound + EPSILON; max_tenure += params.max_tenure_dimension_delta) {
+						for (double increase_rate = params.increase_ten_dim_rate_lower_bound; increase_rate <= params.increase_ten_dim_rate_higher_bound + EPSILON; increase_rate += params.increase_ten_dim_rate_delta) {
 							instance *inst_copy = copy_instance(&inst);
 							thread_data[thread_count] = (ThreadData){
 								.inst = inst_copy,
 								.params = params,
-								.sol = inst.best_sol,
+								.sol = inst_copy->best_sol,
 								.min_tenure = min_tenure,
 								.max_tenure = max_tenure,
 								.increase_rate = increase_rate,
@@ -142,14 +75,9 @@ int main(int argc, char **argv)
 				}
 			}
 
-			// Create threads for VNS
 			if (params.use_vns_search) {
-				for (double learning_rate = params.learning_rate_lower_bound;
-					learning_rate <= params.learning_rate_higher_bound;
-					learning_rate += params.learning_rate_delta) {
-					for (int max_jumps = params.max_jumps_lower_bound;
-						max_jumps <= params.max_jumps_higher_bound;
-						max_jumps += params.max_jumps_delta) {
+				for (double learning_rate = params.learning_rate_lower_bound; learning_rate <= params.learning_rate_higher_bound + EPSILON; learning_rate += params.learning_rate_delta) {
+					for (int max_jumps = params.max_jumps_lower_bound; max_jumps <= params.max_jumps_higher_bound + EPSILON; max_jumps += params.max_jumps_delta) {
 						instance *inst_copy = copy_instance(&inst);
 						thread_data[thread_count] = (ThreadData){
 							.inst = inst_copy,
@@ -166,7 +94,7 @@ int main(int argc, char **argv)
 				}
 			}
 		}
-
+		free_instance(&inst, false);
 	}
 	// Wait for all threads to complete
 	for (int i = 0; i < thread_count; i++) {
@@ -185,6 +113,7 @@ int main(int argc, char **argv)
 
 void read_input(instance *inst)  
 {
+
     if (inst->nnodes < 0) {
         FILE *fp = fopen(inst->input_file, "r");  
         if (!fp) {
@@ -196,12 +125,12 @@ void read_input(instance *inst)
         inst->ycoord = NULL;
     
         char line[1024];
-        int in_node_section = 0;  // Flag to track when we are in the node section
+        int in_node_section = 0;  
         int count = 0;
     
         // Read the file line by line
         while (fgets(line, sizeof(line), fp)) {
-            line[strcspn(line, "\r\n")] = 0; // Removes newline characters from the line
+            line[strcspn(line, "\r\n")] = 0; 
     
             // Extract the number of nodes from the "DIMENSION" line
             if (strncmp(line, "DIMENSION", 9) == 0) {
@@ -239,14 +168,12 @@ void read_input(instance *inst)
     
         fclose(fp);  
     } else {
-        // Set the number of nodes (random value between 50 and 100)
-        inst->xcoord = malloc(inst->nnodes * sizeof(double));  
+
+		inst->xcoord = malloc(inst->nnodes * sizeof(double));  
         inst->ycoord = malloc(inst->nnodes * sizeof(double));  
         strncpy(inst->input_file, "randomly generated", 1000);  
-        int seed = inst->seed;  
-        srand(seed);  
+        srand(inst->seed);  
 
-        // Generate random coordinates between 0 and 9999
         for (int i = 0; i < inst->nnodes; i++) {
             inst->xcoord[i] = (double)((double)rand() / RAND_MAX) * 10000;  
             inst->ycoord[i] = (double)((double)rand() / RAND_MAX) * 10000; 
@@ -262,18 +189,17 @@ void parse_command_line(int argc, char **argv, instance *inst,
 	printf("Running %s with %d parameters\n", argv[0], argc - 1);
 
 	// Default values
-	strcpy(inst->input_file, "../data/berlin52.tsp");
+	strcpy(inst->input_file, "NULL");
 	inst->seed = 1;
 	inst->nnodes = -1;
-	inst->time_limit = 30;
-	inst->best_sol = (solution *)malloc(sizeof(solution));
-	if (!inst->best_sol) {
-	print_error("Memory allocation failed for best_sol");
-	}
-	inst->best_sol->tour_cost = 1e+20;
+	inst->time_limit = 10;
+	inst->xcoord = NULL;
+	inst->ycoord = NULL;
+	inst->distances = NULL;
+	inst->best_sol = NULL;
 	int got_input_file = 0;
 
-	// Parse arguments dynamically
+	// Parse arguments 
 	for (int i = 1; i < argc; i++) {
 	if ((strcmp(argv[i], "-file") == 0 || strcmp(argv[i], "-f") == 0) && i + 1 < argc) {
 	strcpy(inst->input_file, argv[++i]);
@@ -288,7 +214,7 @@ void parse_command_line(int argc, char **argv, instance *inst,
 	inst->time_limit = atof(argv[++i]);
 	}  else if (strcmp(argv[i], "-alg") == 0) {
 		const char *alg = argv[++i];
-		if (strcmp(alg, "tabu_search") == 0) {
+		if (strcmp(alg, "tabu") == 0) {
 			params->use_tabu_search = true;
 			params->min_tenure_dimension_lower_bound = atof(argv[++i]);
 			params->min_tenure_dimension_higher_bound = atof(argv[++i]);
@@ -332,37 +258,4 @@ void parse_command_line(int argc, char **argv, instance *inst,
 	printf("ERROR: Number of random nodes or input file not specified.\n");
 	exit(1);
 	}
-}
-
-
-void *thread_function(void *arg) {
-	ThreadData *data = (ThreadData *)arg;
-	FILE *csv_file = fopen("../data/results.csv", "a");
-	if (!csv_file) {
-		print_error("Failed to open results.csv for writing");
-	}
-
-	if (data->is_tabu_search) {
-		tabu_search(data->sol, data->inst->time_limit, data->inst, data->min_tenure, data->max_tenure, data->increase_rate);
-
-		// Save results to CSV
-		fprintf(csv_file, "tabu_%.2f_%.2f_%.2f,num_nodes_%d_seed_%d_time_limit_%.2f,%.2f\n",
-			data->min_tenure, data->max_tenure, data->increase_rate,
-			data->inst->nnodes, data->inst->seed, data->inst->time_limit, data->sol->tour_cost);
-
-		free_instance(data->inst);
-
-	} else if (data->is_vns_search) {
-		variable_neighborhood_search(data->sol, data->inst->time_limit, data->inst, data->learning_rate, data->max_jumps);
-
-		// Save results to CSV
-		fprintf(csv_file, "vns_%.2f_%d,num_nodes_%d_seed_%d_time_limit_%.2f,%.2f\n",
-			data->learning_rate, data->max_jumps,
-			data->inst->nnodes, data->inst->seed, data->inst->time_limit, data->sol->tour_cost);
-		
-		free_instance(data->inst);
-	}
-
-	fclose(csv_file);
-	pthread_exit(NULL);
 }

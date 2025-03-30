@@ -11,7 +11,7 @@
 //#include <cplex.h>  
 //#include <pthread.h>  
 
-#define VERBOSE				    2		// printing level  (=10 only incumbent, =20 little output, =50-60 good, =70 verbose, >=100 cplex log)
+#define VERBOSE				    30		// printing level  (=10 only incumbent, =20 little output, =50-60 good, =70 verbose, >=100 cplex log)
 
 //hard-wired parameters
 #define XSMALL		  		  1e-5 		// 1e-4*	// tolerance used to decide ingerality of 0-1 var.s
@@ -79,6 +79,6 @@ void plot_costs(char *input_filename, char *output_filename);
 instance *copy_instance(const instance *src);
 
 // Function that free the entire content of an instance struct
-void free_instance(instance *inst);
+void free_instance(instance *inst, const bool free_inst);
 
 #endif // TSP_UTILS_H
