@@ -36,7 +36,7 @@ void calculate_distances(instance *inst) {
     }
     for (int i = 0; i < inst->nnodes; i++) {
         for (int j = 0; j < inst->nnodes; j++) {
-            inst->distances[i * inst->nnodes + j] = round(dist(i, j, inst));
+            inst->distances[i * inst->nnodes + j] = (dist(i, j, inst));
         }
     }
 }
@@ -218,5 +218,61 @@ void plot_costs(char *input_filename, char *output_filename) {
     if (fclose(cost_file) != 0) {
         print_error("Error closing cost file");
     }
+}
+
+// Function that copy the entire content of an instance struct into another one
+
+instance *copy_instance(const instance *src) {
+    instance *dest = (instance *)malloc(sizeof(instance));
+    if (!dest) {
+        print_error("Memory allocation failed for instance");
+    }
+
+    dest->nnodes = src->nnodes;
+    dest->seed = src->seed;
+    dest->time_limit = src->time_limit;
+    dest->start_time = src->start_time;
+    strcpy(dest->input_file, src->input_file);
+
+    dest->xcoord = (double *)malloc(src->nnodes * sizeof(double));
+    if (!dest->xcoord) {
+        print_error("Memory allocation failed for xcoord");
+    }
+    memcpy(dest->xcoord, src->xcoord, src->nnodes * sizeof(double));
+
+    dest->ycoord = (double *)malloc(src->nnodes * sizeof(double));
+    if (!dest->ycoord) {
+        print_error("Memory allocation failed for ycoord");
+    }
+    memcpy(dest->ycoord, src->ycoord, src->nnodes * sizeof(double));
+
+    dest->distances = (double *)malloc(src->nnodes * src->nnodes * sizeof(double));
+    if (!dest->distances) {
+        print_error("Memory allocation failed for distances");
+    }
+    memcpy(dest->distances, src->distances, src->nnodes * src->nnodes * sizeof(double));
+
+    dest->best_sol = (solution *)malloc(sizeof(solution));
+    if (!dest->best_sol) {
+        print_error("Memory allocation failed for best_sol");
+    }
+    dest->best_sol->tour_cost = src->best_sol->tour_cost;
+    dest->best_sol->tour = (double *)malloc((src->nnodes + 1) * sizeof(double));
+    if (!dest->best_sol->tour) {
+        print_error("Memory allocation failed for best_sol tour");
+    }
+    memcpy(dest->best_sol->tour, src->best_sol->tour, (src->nnodes + 1) * sizeof(double));
+
+    return dest;
+}
+
+// Function that free the entire content of an instance struct
+void free_instance(instance *inst) {
+    free(inst->xcoord);
+    free(inst->ycoord);
+    free(inst->distances);
+    free(inst->best_sol->tour);
+    free(inst->best_sol);
+    free(inst);
 }
 

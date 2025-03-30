@@ -210,29 +210,40 @@ void variable_neighborhood_search(solution *sol, double timelimit, const instanc
         print_error("Memory allocation failed");
     }
     memcpy(best_sol->tour, sol->tour, (inst->nnodes + 1) * sizeof(double));
-    double best_tour_cost = inst->best_sol->tour_cost;
+    best_sol->tour_cost = sol->tour_cost;
+
     double jumps_to_perform = 1.0;
     bool skip_two_opt = false;
+
+    solution *temp_sol = (solution *) malloc(sizeof(solution));
+    temp_sol->tour = (double *) calloc(inst->nnodes+1, sizeof(double));
+    if (temp_sol->tour == NULL){
+        print_error("Memory allocation failed");
+    }
+    memcpy(temp_sol->tour, sol->tour, (inst->nnodes + 1) * sizeof(double));
+    temp_sol->tour_cost = sol->tour_cost;
+
     while(time_now - t_start < timelimit) {
         if (!skip_two_opt) {
-            two_opt(sol, timelimit-(time_now-t_start), inst);
+            two_opt(temp_sol, timelimit-(time_now-t_start), inst);
             // Save the cost after 2-opt
-            fprintf(cost_file, "%lf\n", inst->best_sol->tour_cost);
+            fprintf(cost_file, "%lf\n", temp_sol->tour_cost);
         }
-        double running_tour_cost = inst->best_sol->tour_cost;
-        if(running_tour_cost >= best_tour_cost-EPSILON) {
-            memcpy(sol->tour, best_sol->tour, (inst->nnodes + 1) * sizeof(double));
+        double running_tour_cost = temp_sol->tour_cost;
+        if(running_tour_cost >= best_sol->tour_cost-EPSILON) {
+            memcpy(temp_sol->tour, best_sol->tour, (inst->nnodes + 1) * sizeof(double));
             for(int i = 0; i < ((int)jumps_to_perform % max_jumps); i++) {
-                three_opt(sol, inst);
+                three_opt(temp_sol, inst);
             }
             // Save the cost after 3-opt
-            fprintf(cost_file, "%lf\n", sol->tour_cost);
+            fprintf(cost_file, "%lf\n", temp_sol->tour_cost);
             jumps_to_perform+=learning_rate;
             skip_two_opt = false;
         }
         else {
-            memcpy(best_sol->tour, sol->tour, (inst->nnodes + 1) * sizeof(double));
-            best_tour_cost = running_tour_cost;
+            memcpy(best_sol->tour, temp_sol->tour, (inst->nnodes + 1) * sizeof(double));
+            best_sol->tour_cost = running_tour_cost;
+
             if (VERBOSE >=50) fprintf(stdout, "Jumps performed to find better solution:  %d\n", (int)jumps_to_perform % max_jumps);
             jumps_to_perform = 1.0;
             skip_two_opt = true;
@@ -244,13 +255,16 @@ void variable_neighborhood_search(solution *sol, double timelimit, const instanc
         printf("VNS FINAL COST: %lf\n", best_sol->tour_cost);
         printf("----------------------------------------------------------------------------------------------\n\n");
     }
+    memcpy(sol->tour, best_sol->tour, (inst->nnodes + 1) * sizeof(double));
+    sol->tour_cost = best_sol->tour_cost;
+
     free_solution(best_sol);
+    free_solution(temp_sol);
 
     // Close the file
     fclose(cost_file);
 }
 
-// Function to implement Tabu Search for TSP
 void tabu_search(solution *sol, double timelimit, const instance *inst, double min_tenure_dimension, double max_tenure_dimension, double increase_ten_dim_rate) {
     double t_start = second();  // Start time
     double time_now = second();
@@ -474,7 +488,7 @@ void three_opt(solution *sol, const instance *inst) {
 
     // Generate randomly 3 integers i, j, k such that i < j < k < nnodes
     int i, j, k;
-    srand(time(NULL) + rand()); // Seed the random number generator with the current time and a random value
+    srand(time(NULL) + rand()); 
     do {
         i = rand() % inst->nnodes;
         j = rand() % inst->nnodes;
