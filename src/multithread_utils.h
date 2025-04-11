@@ -48,6 +48,15 @@ typedef struct {
 	bool is_vns_search;
 } ThreadData;
 
+typedef struct {
+    double best_cost;
+    char best_params[256]; // Stringa per memorizzare i parametri migliori
+    pthread_mutex_t best_cost_mutex; // Mutex per proteggere l'accesso
+} BestResult;
+
+// Dichiarazione della variabile globale
+extern BestResult global_best_result;
+
 // Function to set default parameters for the configuration
 void set_default_params(ConfigParams *params);
 

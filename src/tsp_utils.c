@@ -33,9 +33,17 @@ void calculate_distances(instance *inst) {
     if (inst->distances == NULL){
         print_error("Memory allocation failed");
     }
-    for (int i = 0; i < inst->nnodes; i++) {
-        for (int j = 0; j < inst->nnodes; j++) {
-            inst->distances[i * inst->nnodes + j] = (dist(i, j, inst));
+    if (inst->input_file[0] == 'r' && inst->input_file[1] == 'a' && inst->input_file[2] == 'n' && inst->input_file[3] == 'd') {
+        for (int i = 0; i < inst->nnodes; i++) {
+            for (int j = 0; j < inst->nnodes; j++) {
+                inst->distances[i * inst->nnodes + j] = dist(i, j, inst);
+            }
+        }
+    } else {
+        for (int i = 0; i < inst->nnodes; i++) {
+            for (int j = 0; j < inst->nnodes; j++) {
+                inst->distances[i * inst->nnodes + j] = round(dist(i, j, inst));
+            }
         }
     }
 }

@@ -4,12 +4,15 @@
 #include <math.h>
 #include <stdbool.h>
 #include <time.h>
+#include <unistd.h>
 #include "tsp_utils.h"
 #include "heuristics.h"
 #include "chrono.h"
 #include "pthread.h"
 #include "multithread_utils.h"
-        
+#include <ilcplex/cplex.h>
+
+BestResult global_best_result = { .best_cost = INFINITY, .best_params = "", .best_cost_mutex = PTHREAD_MUTEX_INITIALIZER };
 
 void read_input(instance *inst);
 void parse_command_line(int argc, char **argv, instance *inst,
@@ -33,9 +36,18 @@ int main(int argc, char **argv)
 	ConfigParams params;
 	set_default_params(&params); 
 
-	pthread_t threads[1000];
-	ThreadData thread_data[1000];
+	// Get the maximum number of threads the CPU can support
+	int max_threads = sysconf(_SC_NPROCESSORS_ONLN) - 2;
+	printf("Multithreading in use\n");
+	printf("Max threads: %d\n", max_threads + 2);
+	printf("Threads used: %d\n", max_threads);
+	if (max_threads < 1) max_threads = 1; // Ensure at least one thread
+
+	pthread_t threads[max_threads];
+	ThreadData thread_data[max_threads];
 	int thread_count = 0;
+	int combination_count = 0;
+
 
 	for (int i = 0; i <= params.sequential_seed; i++) {
 		instance inst;
@@ -47,10 +59,11 @@ int main(int argc, char **argv)
 		nearest_neighbor(&inst, 0, false);
 
 		if (VERBOSE >= 30) {
-			printf("Using seed: %d\n", inst.seed);
+			if (params.sequential_seed > 0){
+				printf("Using seed: %d\n", inst.seed);
+			}
 			printf("Best tour cost after nearest neighbor: %lf\n", inst.best_sol->tour_cost);
 		}
-
 
 		if (params.use_tabu_search || params.use_vns_search) {
 			if (params.use_tabu_search) {
@@ -70,6 +83,15 @@ int main(int argc, char **argv)
 							};
 							pthread_create(&threads[thread_count], NULL, thread_function, &thread_data[thread_count]);
 							thread_count++;
+							combination_count++;
+
+							// Wait for threads if we reach the max allowed
+							if (thread_count >= max_threads) {
+								for (int j = 0; j < thread_count; j++) {
+									pthread_join(threads[j], NULL);
+								}
+								thread_count = 0;
+							}
 						}
 					}
 				}
@@ -90,24 +112,39 @@ int main(int argc, char **argv)
 						};
 						pthread_create(&threads[thread_count], NULL, thread_function, &thread_data[thread_count]);
 						thread_count++;
+						combination_count++;
+
+						// Wait for threads if we reach the max allowed
+						if (thread_count >= max_threads) {
+							for (int j = 0; j < thread_count; j++) {
+								pthread_join(threads[j], NULL);
+							}
+							thread_count = 0;
+						}
 					}
 				}
 			}
 		}
 		free_instance(&inst, false);
 	}
-	// Wait for all threads to complete
+	// Wait for all remaining threads to complete
 	for (int i = 0; i < thread_count; i++) {
 		pthread_join(threads[i], NULL);
 	}
-    double t2 = second(); 
+	double t2 = second(); 
+	plot_costs("../data/tabu_costs.txt", "../data/tabu_costs");
 
-    if (VERBOSE >= 1)   
-    {
-        printf("TSP problem calculations terminated in %lf sec.s\n", t2 - t1);  
-    }
-    
-    return 0; 
+	if (VERBOSE >= 1)   
+	{
+		printf("TSP problem calculations terminated in %lf sec.s\n", t2 - t1);  
+	}
+	
+	if (params.sequential_seed <= 0 + EPSILON) {
+		printf("Combinations tested: %d\n", combination_count);
+		printf("Best cost found: %.2f\n", global_best_result.best_cost);
+		printf("Best parameters: %s\n", global_best_result.best_params);
+	}
+	return 0;
 }         
 
 
@@ -171,7 +208,7 @@ void read_input(instance *inst)
 
 		inst->xcoord = malloc(inst->nnodes * sizeof(double));  
         inst->ycoord = malloc(inst->nnodes * sizeof(double));  
-        strncpy(inst->input_file, "randomly generated", 1000);  
+        strncpy(inst->input_file, "rand", 1000);  
         srand(inst->seed);  
 
         for (int i = 0; i < inst->nnodes; i++) {

@@ -313,8 +313,9 @@ void tabu_search(solution *sol, double timelimit, const instance *inst, double m
     int max_tenure_length = (int)(max_tenure_dimension * inst->nnodes);
     int min_tenure_length = (int)(min_tenure_dimension * inst->nnodes);
     int current_tenure_length = min_tenure_length;
+    double tenure_double_length = min_tenure_length;
     bool is_tenure_increasing = true;
-    int iteration_count = 0;
+    //int iteration_count = 0;
     int **tenure_matrix = (int **)calloc(inst->nnodes, sizeof(int *));
     for (int i = 0; i < inst->nnodes; i++) {
         tenure_matrix[i] = (int *)calloc(inst->nnodes, sizeof(int));
@@ -393,6 +394,7 @@ void tabu_search(solution *sol, double timelimit, const instance *inst, double m
                 memcpy(best_sol->tour, sol->tour, (inst->nnodes + 1) * sizeof(double));
                 best_sol->tour_cost = sol->tour_cost;
             }
+            //iteration_count++;
 
         } else {
             printf("Error occured in tabu_search in finding best i, j \n");
@@ -408,24 +410,25 @@ void tabu_search(solution *sol, double timelimit, const instance *inst, double m
         }
 
         // Adjust the tabu list length based on increase_ten_dim_rate
-        iteration_count++;
-        if (iteration_count >= (int)(1.0 / increase_ten_dim_rate)) {
-            iteration_count = 0;
-            if (is_tenure_increasing) {
-                current_tenure_length++;
-                if (current_tenure_length > max_tenure_length) {
-                    is_tenure_increasing = false;
-                }
-            } else {
-                current_tenure_length--;
-                if (current_tenure_length < min_tenure_length) {
-                    is_tenure_increasing = true;
-                }
-            }
+        if (is_tenure_increasing) {
+            tenure_double_length += increase_ten_dim_rate;
+        } else {
+            tenure_double_length -= increase_ten_dim_rate;
         }
+        current_tenure_length = (int)tenure_double_length;
+        if (current_tenure_length >= max_tenure_length) {
+            is_tenure_increasing = false;
+        }
+        if (current_tenure_length <= min_tenure_length) {
+            is_tenure_increasing = true;
+        }
+        
 
         time_now = second();
     }
+
+    memcpy(sol->tour, best_sol->tour, (inst->nnodes + 1) * sizeof(double));
+    sol->tour_cost = best_sol->tour_cost;
 
     if (VERBOSE >= 50) {
         printf("TABU SEARCH FINAL COST: %lf\n", best_sol->tour_cost);
@@ -434,6 +437,7 @@ void tabu_search(solution *sol, double timelimit, const instance *inst, double m
     for (int i = 0; i < inst->nnodes; i++) {
         free(tenure_matrix[i]);
     }
+    //printf("Iteration count: %d\n", iteration_count);
     free(tenure_matrix);
     free_solution(best_sol);
     fclose(cost_file);
