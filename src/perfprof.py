@@ -11,10 +11,10 @@ import argparse
 defLW = 1.2  # Default line width (balanced for readability)
 defMS = 5  # Marker size (reduced for more subtle symbols)
 
-# Support for up to 9 models
-dashes = ['-', '--', '-.', ':', (0, (5, 1)), (0, (3, 5, 1, 5)), (0, (1, 1)), '-', '--']
-markers = ['o', 'x', 's', '^', '*', '+', 'd', 'p', 'h']  # New distinctive symbols
-colors = ['r', 'g', 'b', 'orange', 'purple', 'cyan', 'brown', 'pink', 'gray']  # Extended color palette
+# Support for up to 12 models
+dashes = ['-', '--', '-.', ':', (0, (5, 1)), (0, (3, 5, 1, 5)), (0, (1, 1)), '-', '--', (0, (4, 2, 1, 2)), (0, (2, 2)), (0, (1, 2))]
+markers = ['o', 'x', 's', '^', '*', '+', 'd', 'p', 'h', 'v', '<', '>']  # Extended marker list
+colors = ['r', 'g', 'b', 'orange', 'purple', 'cyan', 'brown', 'pink', 'gray', 'lime', 'teal', 'gold']  # Extended color palette
 
 
 class CmdLineParser(object):

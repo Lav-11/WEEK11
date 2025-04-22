@@ -69,30 +69,27 @@ int main(int argc, char **argv)
 			if (params.use_tabu_search) {
 				for (double min_tenure = params.min_tenure_dimension_lower_bound; min_tenure <= params.min_tenure_dimension_higher_bound + EPSILON; min_tenure += params.min_tenure_dimension_delta) {
 					for (double max_tenure = params.max_tenure_dimension_lower_bound; max_tenure <= params.max_tenure_dimension_higher_bound + EPSILON; max_tenure += params.max_tenure_dimension_delta) {
-						for (double increase_rate = params.increase_ten_dim_rate_lower_bound; increase_rate <= params.increase_ten_dim_rate_higher_bound + EPSILON; increase_rate += params.increase_ten_dim_rate_delta) {
-							instance *inst_copy = copy_instance(&inst);
-							thread_data[thread_count] = (ThreadData){
-								.inst = inst_copy,
-								.params = params,
-								.sol = inst_copy->best_sol,
-								.min_tenure = min_tenure,
-								.max_tenure = max_tenure,
-								.increase_rate = increase_rate,
-								.is_tabu_search = true,
-								.is_vns_search = false
-							};
-							pthread_create(&threads[thread_count], NULL, thread_function, &thread_data[thread_count]);
-							thread_count++;
-							combination_count++;
+						instance *inst_copy = copy_instance(&inst);
+						thread_data[thread_count] = (ThreadData){
+							.inst = inst_copy,
+							.params = params,
+							.sol = inst_copy->best_sol,
+							.min_tenure = min_tenure,
+							.max_tenure = max_tenure,
+							.is_tabu_search = true,
+							.is_vns_search = false
+						};
+						pthread_create(&threads[thread_count], NULL, thread_function, &thread_data[thread_count]);
+						thread_count++;
+						combination_count++;
 
-							// Wait for threads if we reach the max allowed
-							if (thread_count >= max_threads) {
-								for (int j = 0; j < thread_count; j++) {
-									pthread_join(threads[j], NULL);
-								}
-								thread_count = 0;
+						// Wait for threads if we reach the max allowed
+						if (thread_count >= max_threads) {
+							for (int j = 0; j < thread_count; j++) {
+								pthread_join(threads[j], NULL);
 							}
-						}
+							thread_count = 0;
+						}	
 					}
 				}
 			}
@@ -259,9 +256,6 @@ void parse_command_line(int argc, char **argv, instance *inst,
 			params->max_tenure_dimension_lower_bound = atof(argv[++i]);
 			params->max_tenure_dimension_higher_bound = atof(argv[++i]);
 			params->max_tenure_dimension_delta = atof(argv[++i]);
-			params->increase_ten_dim_rate_lower_bound = atof(argv[++i]);
-			params->increase_ten_dim_rate_higher_bound = atof(argv[++i]);
-			params->increase_ten_dim_rate_delta = atof(argv[++i]);
 		}
 		else if (strcmp(alg, "vns") == 0) {
 			params->use_vns_search = true;

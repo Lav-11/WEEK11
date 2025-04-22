@@ -20,13 +20,13 @@ void nearest_neighbor(instance *inst, int starting_node, bool use_two_opt);
 void best_nearest_neighbor(instance *inst, bool use_two_opt);
 
 // Function to implement the GRASP heuristic for the TSP
-void grasp(instance *inst, bool use_two_opt, double deviating_probability, bool prob_proportional_to_cost);
+void grasp(double timelimit, instance *inst, double deviating_probability);
 
 // Function to implement the variable neighborhood search for the TSP
 void variable_neighborhood_search(solution *sol, double timelimit, const  instance *inst, double learning_rate, int max_jumps);
 
 // Function to implement the tabu search for the TSP
-void tabu_search(solution *sol, double timelimit, const instance *inst, double min_tenure_dimension, double max_tenure_dimension, double increase_ten_dim_rate);
+void tabu_search(solution *sol, double timelimit, const instance *inst, double min_tenure_dimension, double max_tenure_dimension);
 
 // Function to implement the 2-opt heuristic for the TSP
 void two_opt(solution *sol, double timelimit, const instance *inst);

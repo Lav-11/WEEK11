@@ -19,11 +19,6 @@ typedef struct {
 	double max_tenure_dimension_higher_bound;
 	double max_tenure_dimension_delta;
 
-    double increase_ten_dim_rate_lower_bound;
-	double increase_ten_dim_rate_higher_bound;
-	double increase_ten_dim_rate_delta;
-
-
     bool use_vns_search;
 
     double learning_rate_lower_bound;

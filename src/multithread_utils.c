@@ -22,9 +22,6 @@ void set_default_params(ConfigParams *params) {
     params->max_tenure_dimension_lower_bound = 0.5;
     params->max_tenure_dimension_higher_bound = 0.5;
     params->max_tenure_dimension_delta = 0.1;
-    params->increase_ten_dim_rate_lower_bound = 1.0;
-    params->increase_ten_dim_rate_higher_bound = 1.0;
-    params->increase_ten_dim_rate_delta = 0.5;
     params->use_vns_search = false;
     params->learning_rate_lower_bound = 0.1;
     params->learning_rate_higher_bound = 0.1;
@@ -43,7 +40,7 @@ void *thread_function(void *arg) {
     double current_cost = 0.0;
 
     if (data->is_tabu_search) {
-        tabu_search(data->sol, data->inst->time_limit, data->inst, data->min_tenure, data->max_tenure, data->increase_rate);
+        tabu_search(data->sol, data->inst->time_limit, data->inst, data->min_tenure, data->max_tenure);
 
         current_cost = data->sol->tour_cost;
 
@@ -55,8 +52,8 @@ void *thread_function(void *arg) {
 			pthread_exit(NULL);
 		}
 
-        fprintf(csv_file, "tabu_%.2f_%.2f_%.3f,num_nodes_%d_seed_%d_time_limit_%.2f,%.2f\n",
-            data->min_tenure, data->max_tenure, data->increase_rate,
+        fprintf(csv_file, "tabu_2_%.2f_%.2f,num_nodes_%d_seed_%d_time_limit_%.2f,%.2f\n",
+            data->min_tenure, data->max_tenure,
             data->inst->nnodes, data->inst->seed, data->inst->time_limit, current_cost);
 		
 		fclose(csv_file);
@@ -92,7 +89,7 @@ void *thread_function(void *arg) {
         global_best_result.best_cost = current_cost;
         if (data->is_tabu_search) {
             snprintf(global_best_result.best_params, sizeof(global_best_result.best_params),
-                     "tabu_%.2f_%.2f_%.3f", data->min_tenure, data->max_tenure, data->increase_rate);
+                     "tabu_%.2f_%.2f", data->min_tenure, data->max_tenure);
         } else if (data->is_vns_search) {
             snprintf(global_best_result.best_params, sizeof(global_best_result.best_params),
                      "vns_%.3f_%d", data->learning_rate, data->max_jumps);
