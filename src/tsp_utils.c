@@ -7,6 +7,7 @@
 #include "tsp_utils.h"
 #include "heuristics.h"
 #include "chrono.h"
+#include "cpx_utils.h"
 
 // Function to print an error message and terminate the program
 void print_error(const char *err) {
@@ -21,7 +22,7 @@ double random01(unsigned int *seed) {
 }
 
 // Function to calculate the Euclidean distance between two nodes
-double dist(int i, int j, instance *inst) {
+double dist(int i, int j, cpx_instance *inst) {
     double dx = inst->xcoord[i] - inst->xcoord[j];  
     double dy = inst->ycoord[i] - inst->ycoord[j];  
     return (double)(sqrt(dx * dx + dy * dy));

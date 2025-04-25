@@ -7,11 +7,12 @@
 #include <string.h> 
 #include <stdio.h>
 #include <stdbool.h>  
+#include "cpx_utils.h"
 
 //#include <cplex.h>  
 //#include <pthread.h>  
 
-#define VERBOSE				    50		// printing level  (=10 only incumbent, =20 little output, =50-60 good, =70 verbose, >=100 cplex log)
+#define VERBOSE				    30		// printing level  (=10 only incumbent, =20 little output, =50-60 good, =70 verbose, >=100 cplex log)
 
 //hard-wired parameters
 #define XSMALL		  		  1e-5 		// 1e-4*	// tolerance used to decide ingerality of 0-1 var.s
@@ -49,7 +50,7 @@ void print_error(const char *err);
 double random01(unsigned int *seed);
 
 // Function to calculate the Euclidean distance between two nodes i and j in the TSP instance
-double dist(int i, int j, instance *inst);
+double dist(int i, int j, cpx_instance *inst);
 
 // Function to calculate the distance matrix for the TSP instance
 void calculate_distances(instance *inst);
