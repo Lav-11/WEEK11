@@ -9,7 +9,6 @@
 #include "heuristics.h"
 #include "chrono.h"
 #include "pthread.h"
-#include "multithread_utils.h"
 #include "cpx_utils.h"
 #include "callback.h"
 #include "tsp_utils.h"
@@ -22,6 +21,7 @@ void parse_command_line(int argc, char **argv, instance *inst,
 	ConfigParams *params
 ); 
 void *thread_function(void *arg);
+void heuristics_multithread(instance *inst, ConfigParams *params, int argc, char **argv, double t1);
 
 int main(int argc, char **argv) 
 { 	
@@ -53,6 +53,9 @@ int main(int argc, char **argv)
 	if (inst.use_cplex) {
 		TSPopt(&inst);
 	}
+	else if (inst.use_heuristics){
+		heuristics_multithread(&inst, &params, argc, argv, t1);
+	}
 
 
 	double t2 = second(); 
@@ -62,114 +65,6 @@ int main(int argc, char **argv)
 		printf("TSP problem calculations terminated in %lf sec.s\n", t2 - t1);  
 	}
 
-
- 
-
-	// // Get the maximum number of threads the CPU can support
-	// int max_threads = sysconf(_SC_NPROCESSORS_ONLN) - 2;
-	// printf("Multithreading in use\n");
-	// printf("Max threads: %d\n", max_threads + 2);
-	// printf("Threads used: %d\n", max_threads);
-	// if (max_threads < 1) max_threads = 1; // Ensure at least one thread
-
-	// pthread_t threads[max_threads];
-	// ThreadData thread_data[max_threads];
-	// int thread_count = 0;
-	// int combination_count = 0;
-
-
-	// for (int i = 0; i <= params.sequential_seed; i++) {
-	// 	instance inst;
-	// 	parse_command_line(argc, argv, &inst, &params);
-	// 	inst.start_time = t1;
-	// 	inst.seed = inst.seed + i; 
-	// 	read_input(&inst);  
-	// 	calculate_distances(&inst);
-	// 	nearest_neighbor(&inst, 0, false);
-
-	// 	if (VERBOSE >= 30) {
-	// 		if (params.sequential_seed > 0){
-	// 			printf("Using seed: %d\n", inst.seed);
-	// 		}
-	// 		printf("Best tour cost after nearest neighbor: %lf\n", inst.best_sol->tour_cost);
-	// 	}
-
-	// 	if (params.use_tabu_search || params.use_vns_search) {
-	// 		if (params.use_tabu_search) {
-	// 			for (double min_tenure = params.min_tenure_dimension_lower_bound; min_tenure <= params.min_tenure_dimension_higher_bound + EPSILON; min_tenure += params.min_tenure_dimension_delta) {
-	// 				for (double max_tenure = params.max_tenure_dimension_lower_bound; max_tenure <= params.max_tenure_dimension_higher_bound + EPSILON; max_tenure += params.max_tenure_dimension_delta) {
-	// 					instance *inst_copy = copy_instance(&inst);
-	// 					thread_data[thread_count] = (ThreadData){
-	// 						.inst = inst_copy,
-	// 						.params = params,
-	// 						.sol = inst_copy->best_sol,
-	// 						.min_tenure = min_tenure,
-	// 						.max_tenure = max_tenure,
-	// 						.is_tabu_search = true,
-	// 						.is_vns_search = false
-	// 					};
-	// 					pthread_create(&threads[thread_count], NULL, thread_function, &thread_data[thread_count]);
-	// 					thread_count++;
-	// 					combination_count++;
-
-	// 					// Wait for threads if we reach the max allowed
-	// 					if (thread_count >= max_threads) {
-	// 						for (int j = 0; j < thread_count; j++) {
-	// 							pthread_join(threads[j], NULL);
-	// 						}
-	// 						thread_count = 0;
-	// 					}	
-	// 				}
-	// 			}
-	// 		}
-
-	// 		if (params.use_vns_search) {
-	// 			for (double learning_rate = params.learning_rate_lower_bound; learning_rate <= params.learning_rate_higher_bound + EPSILON; learning_rate += params.learning_rate_delta) {
-	// 				for (int max_jumps = params.max_jumps_lower_bound; max_jumps <= params.max_jumps_higher_bound + EPSILON; max_jumps += params.max_jumps_delta) {
-	// 					instance *inst_copy = copy_instance(&inst);
-	// 					thread_data[thread_count] = (ThreadData){
-	// 						.inst = inst_copy,
-	// 						.params = params,
-	// 						.sol = inst_copy->best_sol,
-	// 						.learning_rate = learning_rate,
-	// 						.max_jumps = max_jumps,
-	// 						.is_tabu_search = false,
-	// 						.is_vns_search = true
-	// 					};
-	// 					pthread_create(&threads[thread_count], NULL, thread_function, &thread_data[thread_count]);
-	// 					thread_count++;
-	// 					combination_count++;
-
-	// 					// Wait for threads if we reach the max allowed
-	// 					if (thread_count >= max_threads) {
-	// 						for (int j = 0; j < thread_count; j++) {
-	// 							pthread_join(threads[j], NULL);
-	// 						}
-	// 						thread_count = 0;
-	// 					}
-	// 				}
-	// 			}
-	// 		}
-	// 	}
-	// 	free_instance(&inst, false);
-	// }
-	// // Wait for all remaining threads to complete
-	// for (int i = 0; i < thread_count; i++) {
-	// 	pthread_join(threads[i], NULL);
-	// }
-	// double t2 = second(); 
-	// plot_costs("../data/tabu_costs.txt", "../data/tabu_costs");
-
-	// if (VERBOSE >= 1)   
-	// {
-	// 	printf("TSP problem calculations terminated in %lf sec.s\n", t2 - t1);  
-	// }
-	
-	// if (params.sequential_seed <= 0 + EPSILON) {
-	// 	printf("Combinations tested: %d\n", combination_count);
-	// 	printf("Best cost found: %.2f\n", global_best_result.best_cost);
-	// 	printf("Best parameters: %s\n", global_best_result.best_params);
-	// }
 	return 0;
 }         
 
@@ -326,5 +221,111 @@ void parse_command_line(int argc, char **argv, instance *inst,
 	printf("ERROR: Number of random nodes or input file not specified.\n");
 	exit(1);
 	}
+}
+
+
+// Function to start calculations of heuristics
+void heuristics_multithread(instance *inst, ConfigParams *params, int argc, char **argv, double t1) {
+    int max_threads = sysconf(_SC_NPROCESSORS_ONLN) - 2;
+    printf("Multithreading in use\n");
+    printf("Max threads: %d\n", max_threads + 2);
+    printf("Threads used: %d\n", max_threads);
+    if (max_threads < 1) max_threads = 1;
+
+    pthread_t threads[max_threads];
+    ThreadData thread_data[max_threads];
+    int thread_count = 0;
+    int combination_count = 0;
+
+    for (int i = 0; i <= params->sequential_seed; i++) {
+        instance inst_copy;
+        parse_command_line(argc, argv, &inst_copy, params);
+        inst_copy.start_time = t1;
+        inst_copy.seed = inst->seed + i;
+        read_input(&inst_copy);
+        calculate_distances(&inst_copy);
+        nearest_neighbor(&inst_copy, 0, false);
+
+        if (VERBOSE >= 30) {
+            if (params->sequential_seed > 0) {
+                printf("Using seed: %d\n", inst_copy.seed);
+            }
+            printf("Best tour cost after nearest neighbor: %lf\n", inst_copy.best_sol->tour_cost);
+        }
+
+        if (params->use_tabu_search || params->use_vns_search) {
+            if (params->use_tabu_search) {
+                for (double min_tenure = params->min_tenure_dimension_lower_bound; min_tenure <= params->min_tenure_dimension_higher_bound + EPSILON; min_tenure += params->min_tenure_dimension_delta) {
+                    for (double max_tenure = params->max_tenure_dimension_lower_bound; max_tenure <= params->max_tenure_dimension_higher_bound + EPSILON; max_tenure += params->max_tenure_dimension_delta) {
+                        instance *inst_thread = copy_instance(&inst_copy);
+                        thread_data[thread_count] = (ThreadData){
+                            .inst = inst_thread,
+                            .params = *params,
+                            .sol = inst_thread->best_sol,
+                            .min_tenure = min_tenure,
+                            .max_tenure = max_tenure,
+                            .is_tabu_search = true,
+                            .is_vns_search = false
+                        };
+                        pthread_create(&threads[thread_count], NULL, thread_function, &thread_data[thread_count]);
+                        thread_count++;
+						combination_count++;
+
+                        if (thread_count >= max_threads) {
+                            for (int j = 0; j < thread_count; j++) {
+                                pthread_join(threads[j], NULL);
+                            }
+                            thread_count = 0;
+                        }
+                    }
+                }
+            }
+
+            if (params->use_vns_search) {
+                for (double learning_rate = params->learning_rate_lower_bound; learning_rate <= params->learning_rate_higher_bound + EPSILON; learning_rate += params->learning_rate_delta) {
+                    for (int max_jumps = params->max_jumps_lower_bound; max_jumps <= params->max_jumps_higher_bound + EPSILON; max_jumps += params->max_jumps_delta) {
+                        instance *inst_thread = copy_instance(&inst_copy);
+                        thread_data[thread_count] = (ThreadData){
+                            .inst = inst_thread,
+                            .params = *params,
+                            .sol = inst_thread->best_sol,
+                            .learning_rate = learning_rate,
+                            .max_jumps = max_jumps,
+                            .is_tabu_search = false,
+                            .is_vns_search = true
+                        };
+                        pthread_create(&threads[thread_count], NULL, thread_function, &thread_data[thread_count]);
+                        thread_count++;
+						combination_count++;
+
+                        if (thread_count >= max_threads) {
+                            for (int j = 0; j < thread_count; j++) {
+                                pthread_join(threads[j], NULL);
+                            }
+                            thread_count = 0;
+                        }
+                    }
+                }
+            }
+        }
+        free_instance(&inst_copy, false);
+    }
+
+    for (int i = 0; i < thread_count; i++) {
+        pthread_join(threads[i], NULL);
+    }
+    double t2 = second();
+    plot_costs("../data/tabu_costs.txt", "../data/tabu_costs");
+
+    if (VERBOSE >= 1) {
+        printf("TSP problem calculations terminated in %lf sec.s\n", t2 - t1);
+    }
+
+	printf("Best cost found: %.2f\n", global_best_result.best_cost);
+
+    if (combination_count > 1 + EPSILON) {
+        printf("Combinations tested: %d\n", combination_count);
+        printf("Parameters of best solution: %s\n", global_best_result.best_params);
+    }
 }
 

@@ -4,9 +4,12 @@
 #include <math.h>
 #include <stdbool.h>
 #include <time.h>
+#include <unistd.h>
+
 #include "tsp_utils.h"
 #include "heuristics.h"
 #include "chrono.h"
+#include "multithread_utils.h"
 
 
 // Function to find the nearest neighbor tour for the TSP

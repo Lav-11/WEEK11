@@ -7,11 +7,10 @@
 #include <string.h> 
 #include <stdio.h>
 #include <stdbool.h>  
+#include <pthread.h>  
+#include "tsp_utils.h"
+#include "multithread_utils.h"
 
-//#include <cplex.h>  
-//#include <pthread.h>  
-
-// Function prototypes
 
 // Function to find the nearest neighbor tour for the TSP
 void nearest_neighbor(instance *inst, int starting_node, bool use_two_opt);
