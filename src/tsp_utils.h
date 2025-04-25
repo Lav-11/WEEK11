@@ -28,6 +28,9 @@ typedef struct {
 
 // Structure for the TSP instance
 typedef struct {
+    bool use_cplex;
+    bool use_heuristics;
+    
     int nnodes;                     // Number of nodes in the TSP problem
     double *xcoord;                 // Array of x coordinates for each node
     double *ycoord;                 // Array of y coordinates for each node

@@ -1,6 +1,7 @@
 #include "cpx_utils.h"
 #include "callback.h"  
 #include "tsp_utils.h"     
+#include "heuristics.h"
 
 
 /*********************************************************************************************************************************/
@@ -96,8 +97,8 @@ int TSPopt(instance *inst) {
         if (CPXcallbacksetfunc(env, lp, contextid, my_callback, inst))
             print_error("Error while registering the callback");
     }
-
     // Solve the model
+    nearest_neighbor(inst, 0, true);
     error = CPXmipopt(env, lp);
     if (error) {
         printf("CPX error code %d\n", error);
@@ -188,9 +189,9 @@ void build_model(instance *inst, CPXENVptr env, CPXLPptr lp)
 // add binary var.s x(i,j) for i < j  
 
 	for ( int i = 0; i < inst->nnodes; i++ )
-	{
+	{       
 		for ( int j = i+1; j < inst->nnodes; j++ )
-		{
+		{   
 			sprintf(cname[0], "x(%d,%d)", i+1,j+1);  		// ... x(1,2), x(1,3) ....
 			double obj = dist(i,j,inst); // cost == distance   
 			double lb = 0.0;

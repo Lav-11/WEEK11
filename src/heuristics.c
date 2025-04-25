@@ -60,16 +60,7 @@ void nearest_neighbor(instance *inst, int starting_node, bool use_two_opt) {
     sol->tour[inst->nnodes] = sol->tour[0];
     calculate_tour_cost(sol, inst);
     check_if_best_solution(sol, inst);
-    double time_now = second();
-    if (time_now-inst->start_time > inst->time_limit){
-        if (VERBOSE >= 50) printf("Time limit reached in NN\n");
-        if (VERBOSE >= 50){
-            printf("NEAREST NEIGHBOR FINAL COST: %lf\n", inst->best_sol->tour_cost);
-        }
-        free_solution(sol);
-        free(visited);
-        return;
-    }
+
     if (use_two_opt) {
         two_opt(sol, 1e20, inst);
         check_if_best_solution(sol, inst);

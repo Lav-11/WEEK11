@@ -25,44 +25,45 @@ void *thread_function(void *arg);
 
 int main(int argc, char **argv) 
 { 	
+    if (argc < 2) { 
+        printf("Usage: %s -help for help\n", argv[0]); 
+        exit(1); 
+    }       
+    if (VERBOSE >= 2) { 
+        for (int a = 0; a < argc; a++) printf("%s ", argv[a]); 
+        printf("\n"); 
+    }
 
+	ConfigParams params;
+	set_default_params(&params);
 
-	// Create a random TSP instance
 	instance inst;
-	inst.nnodes = 100; // number of nodes
-	inst.xcoord = (double *)malloc(inst.nnodes * sizeof(double));
-	inst.ycoord = (double *)malloc(inst.nnodes * sizeof(double));
-	inst.integer_costs = 0; // Use continuous costs (Euclidean distances)
-	inst.max_coord = 100.0; // Limit for coordinates (for random generation)
+	printf("Starting TSP solver...\n");
+	parse_command_line(argc, argv, &inst, &params);
+	read_input(&inst);
+	calculate_distances(&inst);
 
-	// Initialize random coordinates for the nodes with a fixed seed for reproducibility
-	srand(42); // Fixed seed for repeatability
-	for (int i = 0; i < inst.nnodes; i++) {
-		inst.xcoord[i] = (rand() % (int)inst.max_coord) + 1.0;
-		inst.ycoord[i] = (rand() % (int)inst.max_coord) + 1.0;
+	if (inst.nnodes < 0) {
+		printf("ERROR: Number of random nodes or input file not specified.\n");
+		exit(1);
+	}
+    
+	double t1 = second(); 
+
+	if (inst.use_cplex) {
+		TSPopt(&inst);
 	}
 
-	// Solve the TSP problem with CPLEX
-	TSPopt(&inst);
 
-	// Free memory
-	free(inst.xcoord);
-	free(inst.ycoord);
+	double t2 = second(); 
 
-		
-    // if (argc < 2) { 
-    //     printf("Usage: %s -help for help\n", argv[0]); 
-    //     exit(1); 
-    // }       
-    // if (VERBOSE >= 2) { 
-    //     for (int a = 0; a < argc; a++) printf("%s ", argv[a]); 
-    //     printf("\n"); 
-    // }
+	if (VERBOSE >= 1)   
+	{
+		printf("TSP problem calculations terminated in %lf sec.s\n", t2 - t1);  
+	}
 
-    // double t1 = second(); 
 
-	// ConfigParams params;
-	// set_default_params(&params); 
+ 
 
 	// // Get the maximum number of threads the CPU can support
 	// int max_threads = sysconf(_SC_NPROCESSORS_ONLN) - 2;
@@ -235,10 +236,10 @@ void read_input(instance *inst)
         inst->ycoord = malloc(inst->nnodes * sizeof(double));  
         strncpy(inst->input_file, "rand", 1000);  
         srand(inst->seed);  
-
+		printf("Generating random instance with %d nodes\n", inst->nnodes);
         for (int i = 0; i < inst->nnodes; i++) {
-            inst->xcoord[i] = (double)((double)rand() / RAND_MAX) * 10000;  
-            inst->ycoord[i] = (double)((double)rand() / RAND_MAX) * 10000; 
+            inst->xcoord[i] = (double)((double)rand() / RAND_MAX) * inst->max_coord;  
+            inst->ycoord[i] = (double)((double)rand() / RAND_MAX) * inst->max_coord; 
         }
     }       
 }
@@ -252,6 +253,8 @@ void parse_command_line(int argc, char **argv, instance *inst,
 
 	// Default values
 	strcpy(inst->input_file, "NULL");
+	inst->use_cplex = false;
+	inst->use_heuristics = false;
 	inst->seed = 1;
 	inst->nnodes = -1;
 	inst->time_limit = 10;
@@ -259,6 +262,8 @@ void parse_command_line(int argc, char **argv, instance *inst,
 	inst->ycoord = NULL;
 	inst->distances = NULL;
 	inst->best_sol = NULL;
+	inst->integer_costs = 0;
+	inst->max_coord = 10000.0; 
 	int got_input_file = 0;
 
 	// Parse arguments 
@@ -266,6 +271,10 @@ void parse_command_line(int argc, char **argv, instance *inst,
 	if ((strcmp(argv[i], "-file") == 0 || strcmp(argv[i], "-f") == 0) && i + 1 < argc) {
 	strcpy(inst->input_file, argv[++i]);
 	got_input_file = 1;
+	} else if (strcmp(argv[i], "-use_cplex") == 0) {
+	inst->use_cplex = true;
+	} else if (strcmp(argv[i], "-use_heu") == 0) {
+	inst->use_heuristics = true;
 	} else if (strcmp(argv[i], "-seed") == 0 && i + 1 < argc) {
 	inst->seed = abs(atoi(argv[++i]));
 	} else if (strcmp(argv[i], "-sequential_seed") == 0 && i + 1 < argc) {
