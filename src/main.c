@@ -11,6 +11,8 @@
 #include "pthread.h"
 #include "multithread_utils.h"
 #include "cpx_utils.h"
+#include "callback.h"
+#include "tsp_utils.h"
 #include <ilcplex/cplex.h>
 
 BestResult global_best_result = { .best_cost = INFINITY, .best_params = "", .best_cost_mutex = PTHREAD_MUTEX_INITIALIZER };
@@ -26,7 +28,7 @@ int main(int argc, char **argv)
 
 
 	// Create a random TSP instance
-	cpx_instance inst;
+	instance inst;
 	inst.nnodes = 100; // number of nodes
 	inst.xcoord = (double *)malloc(inst.nnodes * sizeof(double));
 	inst.ycoord = (double *)malloc(inst.nnodes * sizeof(double));

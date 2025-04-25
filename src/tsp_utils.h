@@ -7,7 +7,6 @@
 #include <string.h> 
 #include <stdio.h>
 #include <stdbool.h>  
-#include "cpx_utils.h"
 
 //#include <cplex.h>  
 //#include <pthread.h>  
@@ -38,6 +37,9 @@ typedef struct {
     double start_time;              // time left, in sec.s
     char input_file[1000];          // The name of the input file (for debugging or reference)
     solution *best_sol;             // Best known solution  for the TSP instance
+    double max_coord;            // Maximum coordinate value for the nodes (for random generation)
+    int integer_costs;              // Flag to indicate if the costs are integers (1) or continuous (0)
+    int ncols;                     // Number of columns in the CPLEX model (number of edges)
 } instance;
 
 
@@ -50,7 +52,7 @@ void print_error(const char *err);
 double random01(unsigned int *seed);
 
 // Function to calculate the Euclidean distance between two nodes i and j in the TSP instance
-double dist(int i, int j, cpx_instance *inst);
+double dist(int i, int j, instance *inst);
 
 // Function to calculate the distance matrix for the TSP instance
 void calculate_distances(instance *inst);

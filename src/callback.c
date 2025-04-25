@@ -4,7 +4,7 @@
 
 // Callback function
 int CPXPUBLIC my_callback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void *userhandle) {
-    cpx_instance *inst = (cpx_instance *)userhandle;
+    instance *inst = (instance *)userhandle;
 
     // Get the number of variables (edges) from the model
     int ncols = inst->ncols;

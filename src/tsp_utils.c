@@ -22,7 +22,7 @@ double random01(unsigned int *seed) {
 }
 
 // Function to calculate the Euclidean distance between two nodes
-double dist(int i, int j, cpx_instance *inst) {
+double dist(int i, int j, instance *inst) {
     double dx = inst->xcoord[i] - inst->xcoord[j];  
     double dy = inst->ycoord[i] - inst->ycoord[j];  
     return (double)(sqrt(dx * dx + dy * dy));

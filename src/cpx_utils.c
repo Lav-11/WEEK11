@@ -4,7 +4,7 @@
 
 
 /*********************************************************************************************************************************/
-void build_sol(const double *xstar, cpx_instance *inst, int *succ, int *comp, int *ncomp) // build succ() and comp() wrt xstar()...
+void build_sol(const double *xstar, instance *inst, int *succ, int *comp, int *ncomp) // build succ() and comp() wrt xstar()...
 /*********************************************************************************************************************************/
 {   
 
@@ -66,7 +66,7 @@ void build_sol(const double *xstar, cpx_instance *inst, int *succ, int *comp, in
 	}
 }
 
-int TSPopt(cpx_instance *inst) {
+int TSPopt(instance *inst) {
     int error;
     CPXENVptr env = CPXopenCPLEX(&error);
     if (error) print_error("CPXopenCPLEX() error");
@@ -164,7 +164,7 @@ int TSPopt(cpx_instance *inst) {
 }
 
 /***************************************************************************************************************************/
-int xpos(int i, int j, cpx_instance *inst)      // to be verified                                           
+int xpos(int i, int j, instance *inst)      // to be verified                                           
 /***************************************************************************************************************************/
 { 
 	if ( i == j ) print_error(" i == j in xpos" );
@@ -175,7 +175,7 @@ int xpos(int i, int j, cpx_instance *inst)      // to be verified
 	
 
 /***************************************************************************************************************************/
-void build_model(cpx_instance *inst, CPXENVptr env, CPXLPptr lp)
+void build_model(instance *inst, CPXENVptr env, CPXLPptr lp)
 /**************************************************************************************************************************/
 {    
 
@@ -246,7 +246,7 @@ void create_directory(const char *path) {
     }
 }
 
-void plot_graph_to_image(int nnodes, double *xcoord, double *ycoord, double *xstar, cpx_instance *inst, double max_coord, double padding) {
+void plot_graph_to_image(int nnodes, double *xcoord, double *ycoord, double *xstar, instance *inst, double max_coord, double padding) {
     // Ensure the ../data directory exists
     const char *dir_path = "../data";
     create_directory(dir_path);
@@ -317,7 +317,7 @@ void plot_graph_to_image(int nnodes, double *xcoord, double *ycoord, double *xst
 }
 
 
-void benders_loop(cpx_instance *inst, CPXENVptr env, CPXLPptr lp, double **xstar_ptr,
+void benders_loop(instance *inst, CPXENVptr env, CPXLPptr lp, double **xstar_ptr,
                   int *succ, int *comp, double start_time, double timelimit,
                   bool *apply_patching) {
     
@@ -364,7 +364,7 @@ void benders_loop(cpx_instance *inst, CPXENVptr env, CPXLPptr lp, double **xstar
     *xstar_ptr = xstar;  // Pass the result back
 }
 
-void add_SEC_constraints(cpx_instance *inst, CPXENVptr env, CPXLPptr lp, double *xstar,
+void add_SEC_constraints(instance *inst, CPXENVptr env, CPXLPptr lp, double *xstar,
                          CPXCALLBACKCONTEXTptr context, int contextid) {
     int *succ = (int *)calloc(inst->nnodes, sizeof(int));
     int *comp = (int *)calloc(inst->nnodes, sizeof(int));
@@ -438,7 +438,7 @@ void add_SEC_constraints(cpx_instance *inst, CPXENVptr env, CPXLPptr lp, double 
     free(comp);
 }
 
-void invert_path(int start, int end, int *succ, double *xstar, cpx_instance *inst) {
+void invert_path(int start, int end, int *succ, double *xstar, instance *inst) {
     int current = start;
     int prev = -1;
 
@@ -463,7 +463,7 @@ void invert_path(int start, int end, int *succ, double *xstar, cpx_instance *ins
     }
 }
 
-void patch_solution(double *xstar, cpx_instance *inst) {
+void patch_solution(double *xstar, instance *inst) {
     int *succ = (int *) malloc(inst->nnodes * sizeof(int));
     int *comp = (int *) malloc(inst->nnodes * sizeof(int));
     int ncomp;
