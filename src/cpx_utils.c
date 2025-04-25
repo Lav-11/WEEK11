@@ -97,8 +97,57 @@ int TSPopt(instance *inst) {
         if (CPXcallbacksetfunc(env, lp, contextid, my_callback, inst))
             print_error("Error while registering the callback");
     }
-    // Solve the model
+
+    // Solve the model with nearest neighbor heuristic
     nearest_neighbor(inst, 0, true);
+
+    double time_limit = 10.0;
+    double learning_rate = 0.01;
+    int max_jumps = 5;
+
+    printf("Starting Variable Neighborhood Search...\n");
+    variable_neighborhood_search(inst->best_sol, time_limit, inst, learning_rate, max_jumps);
+
+    // Prepare the mip start based on nearest neighbor solution
+    double *mip_start = (double *)calloc(inst->ncols, sizeof(double));
+    if (mip_start == NULL) print_error("Memory allocation failed for mip_start");
+
+    // Set mip start based on nearest neighbor solution (we assume x = 1 for edges in the tour)
+    for (int i = 0; i < inst->nnodes - 1; i++) {
+        int node_i = (int)(inst->best_sol->tour[i]) - 1;  // Adjust for 0-indexing
+        int node_j = (int)(inst->best_sol->tour[i + 1]) - 1;  // Adjust for 0-indexing
+        if (node_i > node_j) {
+            int temp = node_i;
+            node_i = node_j;
+            node_j = temp;
+        }
+        mip_start[xpos(node_i, node_j, inst)] = 1.0;  // Set the corresponding edge to 1
+    }
+
+    // Add the mip start to CPLEX
+    int effort_level = CPX_MIPSTART_AUTO; // Use automatic effort level
+    int beg = 0; 	 // Starting index for the MIP start
+    int *indices = (int *)malloc(inst->ncols * sizeof(int));
+    if (indices == NULL) print_error("Memory allocation failed for indices");
+
+    double *values = (double *)malloc(inst->ncols * sizeof(double));
+    if (values == NULL) {
+        free(indices); // Free previously allocated memory
+        print_error("Memory allocation failed for values");
+    }
+
+    for (int i = 0; i < inst->ncols; i++) {
+        indices[i] = i;
+        values[i] = mip_start[i];
+    }
+
+    // Corrected argument order for CPXaddmipstarts
+    int start_status = CPXaddmipstarts(env, lp, 1, inst->ncols, &beg, indices, values, &effort_level, NULL);
+    free(indices);
+    free(values);
+    if (start_status) print_error("CPXaddmipstarts() error");
+
+    // Solve the model using mipstart
     error = CPXmipopt(env, lp);
     if (error) {
         printf("CPX error code %d\n", error);
@@ -158,6 +207,7 @@ int TSPopt(instance *inst) {
     free(comp);
     free(succ);
     free(xstar);
+    free(mip_start);
     CPXfreeprob(env, &lp);
     CPXcloseCPLEX(&env);
 
@@ -304,8 +354,7 @@ void plot_graph_to_image(int nnodes, double *xcoord, double *ycoord, double *xst
     fprintf(gnuplot, "set grid\n");
     fprintf(gnuplot, "set key off\n");
     fprintf(gnuplot, "set size square\n");
-    fprintf(gnuplot, "set xrange [%f:%f]\n", xmin, xmax); // Dynamically set X range
-    fprintf(gnuplot, "set yrange [%f:%f]\n", ymin, ymax); // Dynamically set Y range
+
 
     // Plot the edges (red) and the nodes (blue)
     fprintf(gnuplot, "plot \\\n");
