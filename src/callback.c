@@ -58,7 +58,7 @@ int CPXPUBLIC my_callback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void
 
         // Heuristic repair: nearest neighbor e VNS
         nearest_neighbor(inst, 0, true);
-        double time_limit = 10;
+        double time_limit = 5;
         double learning_rate = 0.01;
         int max_jumps = 5;
         variable_neighborhood_search(inst->best_sol, time_limit, inst, learning_rate, max_jumps);
@@ -102,36 +102,36 @@ int CPXPUBLIC my_callback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void
                 }
             }
         }
-        printf("Node degrees (debug):\n");
-        for (int i = 0; i < inst->nnodes; i++) {
-            printf("Node %d: degree = %d\n", i + 1, degree[i]);
-        }
-        int valid = 1;
-        for (int i = 0; i < inst->nnodes; i++) {
-            if (degree[i] != 2) {
-                valid = 0;
-                printf("Node %d has invalid degree %d\n", i + 1, degree[i]);
-            }
-        }
+        // printf("Node degrees (debug):\n");
+        // for (int i = 0; i < inst->nnodes; i++) {
+        //     printf("Node %d: degree = %d\n", i + 1, degree[i]);
+        // }
+        // int valid = 1;
+        // for (int i = 0; i < inst->nnodes; i++) {
+        //     if (degree[i] != 2) {
+        //         valid = 0;
+        //         printf("Node %d has invalid degree %d\n", i + 1, degree[i]);
+        //     }
+        // }
         free(degree);
 
-        if (!valid) {
-            printf("Heuristic solution is invalid (node degree issue).\n");
-            printf("Edges in the heuristic solution:\n");
-            for (int i = 0; i < inst->nnodes; i++) {
-                for (int j = i + 1; j < inst->nnodes; j++) {
-                    if (heuristic_sol[xpos(i, j, inst)] > 0.5) {
-                        printf("Edge (%d, %d)\n", i + 1, j + 1);
-                    }
-                }
-            }
-            save_solution_for_gnuplot("../data/solution_gnuplot.dat", heuristic_sol, inst);
-            free(heuristic_sol);
-            free(succ);
-            free(comp);
-            free(xstar);
-            return 0; // Non postare la soluzione
-        }
+        // if (!valid) {
+        //     printf("Heuristic solution is invalid (node degree issue).\n");
+        //     printf("Edges in the heuristic solution:\n");
+        //     for (int i = 0; i < inst->nnodes; i++) {
+        //         for (int j = i + 1; j < inst->nnodes; j++) {
+        //             if (heuristic_sol[xpos(i, j, inst)] > 0.5) {
+        //                 printf("Edge (%d, %d)\n", i + 1, j + 1);
+        //             }
+        //         }
+        //     }
+        //     save_solution_for_gnuplot("../data/solution_gnuplot.dat", heuristic_sol, inst);
+        //     free(heuristic_sol);
+        //     free(succ);
+        //     free(comp);
+        //     free(xstar);
+        //     return 0; // Non postare la soluzione
+        // }
 
         // Prepara gli indici e i valori per postare la soluzione euristica
         int nzcnt = 0;
@@ -140,7 +140,7 @@ int CPXPUBLIC my_callback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void
         }
         printf("Number of non-zero variables in heuristic solution: %d\n", nzcnt);
 
-        int *ind = (int *)malloc(nzcnt * sizeof(int));
+        int *ind = (int *)malloc(inst->ncols * sizeof(int));
         if (!ind) {
             free(heuristic_sol);
             free(succ);
@@ -152,16 +152,16 @@ int CPXPUBLIC my_callback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void
         for (int i = 0; i < ncols; i++) {
                 ind[i] = i;
         }
-        printf("Posting heuristic solution:\n");
-        for (int i = 0; i < nzcnt; i++) {
-            printf("  ind[%d] = %d\n", i, ind[i]);
-        }
+        // printf("Posting heuristic solution:\n");
+        // for (int i = 0; i < nzcnt; i++) {
+        //     printf("  ind[%d] = %d\n", i, ind[i]);
+        // }
         printf("Objective value of heuristic solution: %f\n", heuristic_objval);
         printf("nuber of cols: %d\n", inst->ncols);
         //print ind and val
-        for (int i = 0; i < nzcnt; i++) {
-            printf("  ind[%d] = %d\n", i, ind[i]);
-        }
+        // for (int i = 0; i < nzcnt; i++) {
+        //     printf("  ind[%d] = %d\n", i, ind[i]);
+        // }
         // Print heuristic solution
         // for (int i = 0; i < inst->ncols; i++) {
         //     printf("heuristic_sol[%d] = %f\n", i, heuristic_sol[i]);
