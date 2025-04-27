@@ -7,9 +7,13 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 #include <ilcplex/cplex.h>
+#include "tsp_utils.h"
+#include "heuristics.h"
 
 
 
 int CPXPUBLIC my_callback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void *userhandle);
+
+void save_solution_for_gnuplot(const char *filename, double *heuristic_sol, instance *inst);
 
 #endif

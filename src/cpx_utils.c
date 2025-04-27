@@ -79,7 +79,8 @@ int TSPopt(instance *inst) {
     inst->ncols = CPXgetnumcols(env, lp);
 
     // Set CPLEX parameters
-    CPXsetintparam(env, CPX_PARAM_SCRIND, CPX_OFF);
+    CPXsetintparam(env, CPX_PARAM_MIPDISPLAY, 4); // Livello massimo di dettagli
+    CPXsetintparam(env, CPX_PARAM_SCRIND, CPX_ON); // Abilita l'output dettagliato
     if (VERBOSE >= DEBUG) CPXsetintparam(env, CPX_PARAM_SCRIND, CPX_ON); // Enable CPLEX screen output
     CPXsetintparam(env, CPX_PARAM_RANDOMSEED, 123456);
     double timelimit = 600.0;
@@ -100,13 +101,14 @@ int TSPopt(instance *inst) {
 
     // Solve the model with nearest neighbor heuristic
     nearest_neighbor(inst, 0, true);
+    printf("Best tour cost after nearest neighbor: %lf\n", inst->best_sol->tour_cost);
 
     double time_limit = 10.0;
     double learning_rate = 0.01;
     int max_jumps = 5;
 
     printf("Starting Variable Neighborhood Search...\n");
-    variable_neighborhood_search(inst->best_sol, time_limit, inst, learning_rate, max_jumps);
+    // variable_neighborhood_search(inst->best_sol, time_limit, inst, learning_rate, max_jumps);
 
     // Prepare the mip start based on nearest neighbor solution
     double *mip_start = (double *)calloc(inst->ncols, sizeof(double));
@@ -116,13 +118,14 @@ int TSPopt(instance *inst) {
     for (int i = 0; i < inst->nnodes - 1; i++) {
         int node_i = (int)(inst->best_sol->tour[i]) - 1;  // Adjust for 0-indexing
         int node_j = (int)(inst->best_sol->tour[i + 1]) - 1;  // Adjust for 0-indexing
-        if (node_i > node_j) {
-            int temp = node_i;
-            node_i = node_j;
-            node_j = temp;
-        }
+        // if (node_i > node_j) {
+        //     int temp = node_i;
+        //     node_i = node_j;
+        //     node_j = temp;
+        // }
         mip_start[xpos(node_i, node_j, inst)] = 1.0;  // Set the corresponding edge to 1
     }
+    mip_start[xpos((int)(inst->best_sol->tour[inst->nnodes - 1]) - 1, (int)(inst->best_sol->tour[0]) - 1, inst)] = 1.0;
 
     // Add the mip start to CPLEX
     int effort_level = CPX_MIPSTART_AUTO; // Use automatic effort level
