@@ -12,6 +12,7 @@
 #include "cpx_utils.h"
 #include "callback.h"
 #include "tsp_utils.h"
+#include "solver.h"
 #include <ilcplex/cplex.h>
 
 BestResult global_best_result = { .best_cost = INFINITY, .best_params = "", .best_cost_mutex = PTHREAD_MUTEX_INITIALIZER };
@@ -51,7 +52,7 @@ int main(int argc, char **argv)
 	double t1 = second(); 
 
 	if (inst.use_cplex) {
-		TSPopt(&inst);
+		TSPopt(&inst, &params);
 	}
 	else if (inst.use_heuristics){
 		heuristics_multithread(&inst, &params, argc, argv, t1);
@@ -130,8 +131,9 @@ void read_input(instance *inst)
 		inst->xcoord = malloc(inst->nnodes * sizeof(double));  
         inst->ycoord = malloc(inst->nnodes * sizeof(double));  
         strncpy(inst->input_file, "rand", 1000);  
-        srand(inst->seed);  
-		printf("Generating random instance with %d nodes\n", inst->nnodes);
+        srand(inst->seed);
+        if (VERBOSE >= 50)  
+            printf("Generating random instance with %d nodes\n", inst->nnodes);
         for (int i = 0; i < inst->nnodes; i++) {
             inst->xcoord[i] = (double)((double)rand() / RAND_MAX) * inst->max_coord;  
             inst->ycoord[i] = (double)((double)rand() / RAND_MAX) * inst->max_coord; 
@@ -143,7 +145,7 @@ void read_input(instance *inst)
 void parse_command_line(int argc, char **argv, instance *inst, 
 		ConfigParams *params) 
 	{
-	if (VERBOSE >= 100)
+	if (VERBOSE >= 60)
 	printf("Running %s with %d parameters\n", argv[0], argc - 1);
 
 	// Default values
@@ -168,7 +170,17 @@ void parse_command_line(int argc, char **argv, instance *inst,
 	got_input_file = 1;
 	} else if (strcmp(argv[i], "-use_cplex") == 0) {
 	inst->use_cplex = true;
-	} else if (strcmp(argv[i], "-use_heu") == 0) {
+	} else if (strcmp(argv[i], "-warmstart") == 0) {
+    params->warmstart = true;
+    } else if (strcmp(argv[i], "-use_benders") == 0) {
+    params->use_benders = true;
+    } else if (strcmp(argv[i], "-use_bc") == 0) {
+    params->use_bc = true;
+    } else if (strcmp(argv[i], "-posting") == 0) {
+    params->posting = true;
+    } else if (strcmp(argv[i], "-fractional") == 0) {
+    params->fractional = true;
+    } else if (strcmp(argv[i], "-use_heu") == 0) {
 	inst->use_heuristics = true;
 	} else if (strcmp(argv[i], "-seed") == 0 && i + 1 < argc) {
 	inst->seed = abs(atoi(argv[++i]));
@@ -226,11 +238,14 @@ void parse_command_line(int argc, char **argv, instance *inst,
 
 // Function to start calculations of heuristics
 void heuristics_multithread(instance *inst, ConfigParams *params, int argc, char **argv, double t1) {
-    int max_threads = sysconf(_SC_NPROCESSORS_ONLN) - 2;
-    printf("Multithreading in use\n");
-    printf("Max threads: %d\n", max_threads + 2);
-    printf("Threads used: %d\n", max_threads);
+    int max_threads = sysconf(_SC_NPROCESSORS_ONLN) -2;
     if (max_threads < 1) max_threads = 1;
+
+    if (VERBOSE >= 10) {
+        printf("Multithreading in use\n");
+        printf("Max threads: %d\n", max_threads + 2);
+        printf("Threads used: %d\n", max_threads);
+    }
 
     pthread_t threads[max_threads];
     ThreadData thread_data[max_threads];
@@ -240,7 +255,6 @@ void heuristics_multithread(instance *inst, ConfigParams *params, int argc, char
     for (int i = 0; i <= params->sequential_seed; i++) {
         instance inst_copy;
         parse_command_line(argc, argv, &inst_copy, params);
-        inst_copy.start_time = t1;
         inst_copy.seed = inst->seed + i;
         read_input(&inst_copy);
         calculate_distances(&inst_copy);
@@ -280,7 +294,6 @@ void heuristics_multithread(instance *inst, ConfigParams *params, int argc, char
                     }
                 }
             }
-
             if (params->use_vns_search) {
                 for (double learning_rate = params->learning_rate_lower_bound; learning_rate <= params->learning_rate_higher_bound + EPSILON; learning_rate += params->learning_rate_delta) {
                     for (int max_jumps = params->max_jumps_lower_bound; max_jumps <= params->max_jumps_higher_bound + EPSILON; max_jumps += params->max_jumps_delta) {

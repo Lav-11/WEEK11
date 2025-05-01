@@ -9,7 +9,6 @@
 #include "tsp_utils.h"
 #include "heuristics.h"
 #include "chrono.h"
-#include "multithread_utils.h"
 
 
 // Function to find the nearest neighbor tour for the TSP
@@ -80,6 +79,7 @@ void nearest_neighbor(instance *inst, int starting_node, bool use_two_opt) {
 
 // Function to calculate the best nearest_neigbbor tour for the TSP
 void best_nearest_neighbor(instance *inst, bool use_two_opt) {
+    double start_time = second();
     inst->best_sol = (solution *)malloc(sizeof(solution));
 	if (!inst->best_sol) {
 	print_error("Memory allocation failed for best_sol");
@@ -96,7 +96,7 @@ void best_nearest_neighbor(instance *inst, bool use_two_opt) {
     for (int i = 0; i < inst->nnodes; i++) {
         nearest_neighbor(inst, i, use_two_opt);
         double time_now = second();
-        if (time_now-inst->start_time > inst->time_limit){
+        if (time_now-start_time > inst->time_limit){
             if (VERBOSE >= 20) printf("Time limit reached in best_nearest_neighbor\n");
             break;
         }

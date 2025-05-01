@@ -9,7 +9,6 @@
 #include <stdbool.h>  
 #include <pthread.h>  
 #include "tsp_utils.h"
-#include "multithread_utils.h"
 
 
 // Function to find the nearest neighbor tour for the TSP
