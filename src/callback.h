@@ -12,8 +12,6 @@
 
 
 
-int CPXPUBLIC my_callback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void *userhandle);
-
-void save_solution_for_gnuplot(const char *filename, double *heuristic_sol, instance *inst);
+int CPXPUBLIC candidate_callback(CPXCALLBACKCONTEXTptr context, CPXLONG contextid, void *userhandle);
 
 #endif

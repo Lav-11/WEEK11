@@ -24,8 +24,13 @@ double random01(unsigned int *seed) {
 // Function to calculate the Euclidean distance between two nodes
 double dist(int i, int j, instance *inst) {
     double dx = inst->xcoord[i] - inst->xcoord[j];  
-    double dy = inst->ycoord[i] - inst->ycoord[j];   
-    return round((double)(sqrt(dx * dx + dy * dy)));
+    double dy = inst->ycoord[i] - inst->ycoord[j];
+    if (inst->integer_costs) {
+        return round((double)(sqrt(dx * dx + dy * dy)));  
+    }   
+    else {
+        return (double)(sqrt(dx * dx + dy * dy));
+    }
 }
 
 // Function that calculates a matrix that stores the distance between each pair of nodes

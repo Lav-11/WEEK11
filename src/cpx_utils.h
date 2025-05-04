@@ -11,6 +11,10 @@
 #include "tsp_utils.h"
 #include "solver.h"
 
+typedef struct {
+    instance *inst;
+    ConfigParams *params;
+} cpx_data;
 
 // Function prototypes
 
@@ -25,12 +29,6 @@ void build_sol(const double *xstar, instance *inst, int *succ, int *comp, int *n
 // Solve the TSP using CPLEX
 int TSPopt(instance *inst, ConfigParams *params);
 
-// Function to ensure the directory exists
-void create_directory(const char *path);
-
-// Function to plot the graph and save it as an image
-void plot_graph_to_image(int nnodes, double *xcoord, double *ycoord, double *xstar, instance *inst, double max_coord, double padding);
-
 // Function to use benders
 void benders_loop(instance *inst, CPXENVptr env, CPXLPptr lp, double start_time);
 
@@ -40,13 +38,13 @@ CPXCALLBACKCONTEXTptr context, int contextid);
 
 void patch_solution(double *xstar, instance *inst);
 
-void invert_path(int start, int end, int *succ, double *xstar, instance *inst);
-
 // warm start function
 void warmstart(CPXENVptr env, CPXLPptr lp, instance *inst);
 
 // convert successor array to tour
 void convert_succ_to_tour(int *succ, int nnodes, double *tour);
 
+// Branch and cut function
+void branch_and_cut(instance *inst, CPXENVptr env, CPXLPptr lp, double start_time, ConfigParams *params);
 
 #endif // CPX_UTILS_H

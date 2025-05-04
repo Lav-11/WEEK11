@@ -9,7 +9,10 @@ void build_sol(const double *xstar, instance *inst, int *succ, int *comp, int *n
 	for ( int i = 0; i < inst->nnodes; i++ ){
 		for ( int j = i+1; j < inst->nnodes; j++ ){
 			int k = xpos(i,j,inst);
-			if ( fabs(xstar[k]) > EPSILON && fabs(xstar[k]-1.0) > EPSILON ) print_error(" wrong xstar in build_sol()");
+			if ( fabs(xstar[k]) > EPSILON && fabs(xstar[k]-1.0) > EPSILON ){ 
+                printf("xstar[%d] = %f\n", k, xstar[k]);
+                print_error(" wrong xstar in build_sol()");
+            }
 			if ( xstar[k] > 0.5 ) {
 				++degree[i];
 				++degree[j];
@@ -75,18 +78,8 @@ int TSPopt(instance *inst, ConfigParams *params) {
     }
 
     if (params->use_bc) {
-        if (params->fractional) {
-            print_error("Fractional not implemented yet");
-            // CPXLONG contextid = CPX_CALLBACKCONTEXT_CANDIDATE;
-            // if (CPXcallbacksetfunc(env, lp, contextid, my_callback, inst))
-            //     print_error("Error while registering the callback");
-        }
-        else {
-            CPXLONG contextid = CPX_CALLBACKCONTEXT_CANDIDATE;
-            if (CPXcallbacksetfunc(env, lp, contextid, my_callback, inst))
-                print_error("Error while registering the callback");
-            //branch
-        }
+        printf("Branch and cut algorithm selected.\n");
+        branch_and_cut(inst, env, lp, start_time, params);
     }
 
     if (params->use_benders) {
@@ -183,76 +176,6 @@ void build_model(instance *inst, CPXENVptr env, CPXLPptr lp){
 }
 
 
-void create_directory(const char *path) {
-    struct stat st = {0};
-    if (stat(path, &st) == -1) {
-        #ifdef _WIN32
-        mkdir(path);
-        #else
-        mkdir(path, 0700);
-        #endif
-    }
-}
-
-void plot_graph_to_image(int nnodes, double *xcoord, double *ycoord, double *xstar, instance *inst, double max_coord, double padding) {
-    const char *dir_path = "../data";
-    create_directory(dir_path);
-
-    char data_file_path[256];
-    snprintf(data_file_path, sizeof(data_file_path), "%s/graph_data.dat", dir_path);
-    FILE *file = fopen(data_file_path, "w");
-    if (!file) {
-        printf("Error: Unable to open file for writing.\n");
-        return;
-    }
-
-    fprintf(file, "# Selected edges (lines)\n");
-    for (int i = 0; i < nnodes; i++) {
-        for (int j = i + 1; j < nnodes; j++) {
-            if (xstar[xpos(i, j, inst)] > 0.5) { 
-                fprintf(file, "%.2f %.2f\n", xcoord[i], ycoord[i]); 
-                fprintf(file, "%.2f %.2f\n\n", xcoord[j], ycoord[j]); 
-            }
-        }
-    }
-
-    fprintf(file, "\n\n# Node coordinates (points)\n");
-    for (int i = 0; i < nnodes; i++) {
-        fprintf(file, "%.2f %.2f\n", xcoord[i], ycoord[i]); 
-    }
-
-    fclose(file);
-
-    double xmin = 0 - padding;
-    double xmax = max_coord + padding;
-    double ymin = 0 - padding;
-    double ymax = max_coord + padding;
-
-    FILE *gnuplot = popen("gnuplot", "w");
-    if (!gnuplot) {
-        printf("Error: Unable to open GNUplot.\n");
-        return;
-    }
-
-    char image_file_path[256];
-    snprintf(image_file_path, sizeof(image_file_path), "%s/graph_plot.png", dir_path);
-
-    fprintf(gnuplot, "set terminal png size 800,600\n"); 
-    fprintf(gnuplot, "set output '%s'\n", image_file_path);
-    fprintf(gnuplot, "set title 'Graph Visualization'\n");
-    fprintf(gnuplot, "set grid\n");
-    fprintf(gnuplot, "set key off\n");
-    fprintf(gnuplot, "set size square\n");
-    fprintf(gnuplot, "plot \\\n");
-    fprintf(gnuplot, "  '%s' index 0 using 1:2 with lines lc rgb 'red' title 'Edges', \\\n", data_file_path);
-    fprintf(gnuplot, "  '%s' index 1 using 1:2 with points pt 7 lc rgb 'blue' title 'Nodes'\n", data_file_path);
-
-    pclose(gnuplot);
-
-    printf("Graph saved as an image: %s\n", image_file_path);
-}
-
-
 void benders_loop(instance *inst, CPXENVptr env, CPXLPptr lp, double start_time) {
 
     double *xstar = (double *)calloc(inst->ncols, sizeof(double));
@@ -289,15 +212,19 @@ void benders_loop(instance *inst, CPXENVptr env, CPXLPptr lp, double start_time)
 
         if (elapsed_time >= inst->time_limit) {
             printf("Time limit exceeded. Initiating patching process...\n");
-            return;
+            patch_solution(xstar, inst);
+            break;
         }
     }
+    build_sol(xstar, inst, succ, comp, &ncomp);
     solution *cpx_sol = (solution *)malloc(sizeof(solution));
     cpx_sol->tour = (double *)calloc(inst->nnodes + 1, sizeof(double));
-    if (cpx_sol->tour == NULL) print_error("calloc() error for cpx_sol.tour in benders loop");
+    if (cpx_sol->tour == NULL) print_error("calloc() error for cpx_sol->tour in benders loop");
     convert_succ_to_tour(succ, inst->nnodes, cpx_sol->tour);
+    two_opt(cpx_sol, 1e20, inst);
 
-    png_solution_for_gnuplot(cpx_sol, true, "../data/cplex_solution", inst);
+    check_tour_feasability(cpx_sol, inst);
+    png_solution_for_gnuplot(cpx_sol, true, "../data/benders_solution", inst);
 
     free(xstar);
     free(succ);
@@ -318,8 +245,9 @@ void add_SEC_constraints(instance *inst, CPXENVptr env, CPXLPptr lp, double *xst
         free(comp);
         return;
     }
-
-    printf("Adding %d SEC constraints%s...\n", ncomp, context ? " via callback" : "");
+    if (VERBOSE >= 50) {
+        printf("Adding %d SEC constraints%s...\n", ncomp, context ? " via callback" : "");
+    }
 
     for (int k = 1; k <= ncomp; k++) {
         int size = 0;
@@ -327,7 +255,7 @@ void add_SEC_constraints(instance *inst, CPXENVptr env, CPXLPptr lp, double *xst
             if (comp[i] == k) size++;
         if (size <= 1) continue;
 
-        int max_nz = size * (size - 1) / 2;
+        int max_nz = inst->ncols;
         int *index = (int *)malloc(max_nz * sizeof(int));
         double *value = (double *)malloc(max_nz * sizeof(double));
         int nz = 0;
@@ -337,7 +265,8 @@ void add_SEC_constraints(instance *inst, CPXENVptr env, CPXLPptr lp, double *xst
             for (int j = i + 1; j < inst->nnodes; j++) {
                 if (comp[j] != k) continue;
                 index[nz] = xpos(i, j, inst);
-                value[nz++] = 1.0;
+                value[nz] = 1.0;
+                nz++;
             }
         }
 
@@ -372,27 +301,6 @@ void add_SEC_constraints(instance *inst, CPXENVptr env, CPXLPptr lp, double *xst
     free(comp);
 }
 
-void invert_path(int start, int end, int *succ, double *xstar, instance *inst) {
-    int current = start;
-    int prev = -1;
-
-    while (current != end) {
-        int next = succ[current]; 
-        succ[current] = prev;    
-        prev = current;          
-        current = next;          
-    }
-
-    succ[current] = prev;
-
-    current = start;
-    while (current != end) {
-        int next = succ[current];
-        xstar[xpos(current, next, inst)] = 1.0; 
-        xstar[xpos(next, current, inst)] = 0.0; 
-        current = next;
-    }
-}
 
 void patch_solution(double *xstar, instance *inst) {
     int *succ = (int *) malloc(inst->nnodes * sizeof(int));
@@ -402,13 +310,17 @@ void patch_solution(double *xstar, instance *inst) {
     build_sol(xstar, inst, succ, comp, &ncomp);
 
     if (ncomp <= 1) {
-        printf("No patching needed. Solution is a single tour.\n");
+        if (VERBOSE >= 50) {
+            printf("No patching needed. Solution is a single tour.\n");
+        }
         free(succ);
         free(comp);
         return;
     }
 
-    printf("Patching needed. Components found: %d\n", ncomp);
+    if (VERBOSE >= 50) {
+        printf("Patching needed. Components found: %d\n", ncomp);
+    }
 
     while (ncomp > 1) {
 
@@ -420,16 +332,16 @@ void patch_solution(double *xstar, instance *inst) {
         for (int i = 0; i < inst->nnodes; i++) {
             for (int j = i + 1; j < inst->nnodes; j++) {
                 if (comp[i] != comp[j]) {
-                    swap = false; 
-                    succ_i = succ[best_i];
-                    succ_j = succ[best_j];
-                    double cij = dist(i, j, inst) + dist(succ_j, succ_i, inst); 
+                    succ_i = succ[i];
+                    succ_j = succ[j];
+                    double cij = inst->distances[i * inst->nnodes + j] + inst->distances[succ_i * inst->nnodes + succ_j] - inst->distances[i * inst->nnodes + succ_i] - inst->distances[j * inst->nnodes + succ_j]; 
                     if (cij < best_cost) {
+                        swap = false;
                         best_cost = cij;
                         best_i = i;
                         best_j = j;
                     }
-                    double cij_swap = dist(i, succ_j, inst) + dist(j, succ_i, inst);
+                    double cij_swap = inst->distances[i * inst->nnodes + succ_j] + inst->distances[j * inst->nnodes + succ_i] - inst->distances[i * inst->nnodes + succ_i] - inst->distances[j * inst->nnodes + succ_j];
                     if (cij_swap < best_cost) {
                         best_cost = cij_swap;
                         best_i = i;
@@ -444,25 +356,22 @@ void patch_solution(double *xstar, instance *inst) {
             printf("No valid edge pairs found. Aborting patching.\n");
             break;
         }
-
+        
+        succ_i = succ[best_i];
+        succ_j = succ[best_j];
         xstar[xpos(best_i, succ_i, inst)] = 0.0;
         xstar[xpos(best_j, succ_j, inst)] = 0.0;
-
         if  (swap == false){
             xstar[xpos(best_i, best_j, inst)] = 1.0;
-            xstar[xpos(succ_j, succ_i, inst)] = 1.0;
+            xstar[xpos(succ_i, succ_j, inst)] = 1.0;
         }
         else if (swap == true) { 
-            printf("Inverting path from %d to %d\n", best_j, succ_j);
-            invert_path(best_j, succ_j, succ, xstar, inst);
-        
             xstar[xpos(best_i, succ_j, inst)] = 1.0;
             xstar[xpos(best_j, succ_i, inst)] = 1.0;
         }
         build_sol(xstar, inst, succ, comp, &ncomp);
-        printf("Components after patching: %d\n", ncomp);
     }
-
+    
     free(succ);
     free(comp);
 }
@@ -479,7 +388,7 @@ void warmstart(CPXENVptr env, CPXLPptr lp, instance *inst) {
         double learning_rate = 0.001;
         int max_jumps = 5;
         if (VERBOSE >= 30) printf("Starting Variable Neighborhood Search for warm start...\n");
-        variable_neighborhood_search(inst->best_sol, time_limit / 10, inst, learning_rate, max_jumps);
+        variable_neighborhood_search(inst->best_sol, fmin(time_limit / 10, 5), inst, learning_rate, max_jumps);
     
         double *mip_start = (double *)calloc(inst->ncols, sizeof(double));
         if (mip_start == NULL) print_error("Memory allocation failed in warm start");
@@ -529,4 +438,27 @@ void convert_succ_to_tour(int *succ, int nnodes, double *tour) {
     temp_tour[nnodes] = temp_tour[0];  
     memcpy(tour, temp_tour, (nnodes + 1) * sizeof(double));
     free(temp_tour);
+}
+
+void branch_and_cut(instance *inst, CPXENVptr env, CPXLPptr lp, double start_time, ConfigParams *params) {
+
+    cpx_data *data = (cpx_data *)malloc(sizeof(cpx_data));
+    if (data == NULL) print_error("Memory allocation failed for cpx_data in branch_and_cut");
+    data->inst = inst;
+    data->params = params;
+    if (params->fractional) {
+        print_error("Fractional not implemented yet");
+        // CPXLONG contextid = CPX_CALLBACKCONTEXT_CANDIDATE;
+        // if (CPXcallbacksetfunc(env, lp, contextid, my_callback, inst))
+        //     print_error("Error while registering the callback");
+    }
+    else {
+        CPXLONG contextid = CPX_CALLBACKCONTEXT_CANDIDATE;
+        if (CPXcallbacksetfunc(env, lp, contextid, candidate_callback, data))
+            print_error("Error while registering the candidate callback");
+    }
+
+    if (CPXmipopt(env, lp)) print_error("CPXmipopt() error in branch_and_cut");
+
+    free(data);
 }

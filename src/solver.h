@@ -1,5 +1,5 @@
-#ifndef MULTITHREAD_UTILS_H
-#define MULTITHREAD_UTILS_H
+#ifndef SOLVER_H
+#define SOLVER_H
 
 #include "tsp_utils.h"
 #include "heuristics.h"

@@ -15,7 +15,7 @@
 
 //hard-wired parameters
 #define XSMALL		  		  1e-5 		// 1e-4*	// tolerance used to decide ingerality of 0-1 var.s
-#define EPSILON		  		  1e-9		// 1e-9		// very small numerical tolerance 
+#define EPSILON		  		  1e-5		// 1e-9		// very small numerical tolerance 
 #define TICKS_PER_SECOND 	  1000.0  	// cplex's ticks on Intel Core i7 quadcore @2.3GHZ
 
 
@@ -41,7 +41,7 @@ typedef struct {
     char input_file[1000];          // The name of the input file (for debugging or reference)
     solution *best_sol;             // Best known solution  for the TSP instance
     double max_coord;            // Maximum coordinate value for the nodes (for random generation)
-    int integer_costs;              // Flag to indicate if the costs are integers (1) or continuous (0)
+    bool integer_costs;              // Flag to indicate if the costs are integers (1) or continuous (0)
     int ncols;                     // Number of columns in the CPLEX model (number of edges)
 } instance;
 

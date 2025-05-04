@@ -4,7 +4,7 @@ from collections import defaultdict
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-# python3 ../src/perfprof.py -M 1.05 ../data/output.csv ../data/output.pdf
+# python3 ../src/perfprof.py -M 3 -D , ../data/cpx_output.csv ../data/cpx_output.pdf
 
 def process_csv(input_file, output_file):
     data = defaultdict(dict)
@@ -36,3 +36,7 @@ def process_csv(input_file, output_file):
 input_file = '../data/results.csv'
 output_file = '../data/output.csv'
 process_csv(input_file, output_file)
+input_file = '../data/cpx_times.csv'
+cpx_output_file = '../data/cpx_output.csv'
+process_csv(input_file, cpx_output_file)
+

@@ -22,7 +22,8 @@ void parse_command_line(int argc, char **argv, instance *inst,
 	ConfigParams *params
 ); 
 void *thread_function(void *arg);
-void heuristics_multithread(instance *inst, ConfigParams *params, int argc, char **argv, double t1);
+void heuristics_multiparams(instance *inst, ConfigParams *params, int argc, char **argv, double t1);
+void cpx_multiparams(instance *inst, ConfigParams *params, int argc, char **argv);
 
 int main(int argc, char **argv) 
 { 	
@@ -52,10 +53,10 @@ int main(int argc, char **argv)
 	double t1 = second(); 
 
 	if (inst.use_cplex) {
-		TSPopt(&inst, &params);
+		cpx_multiparams(&inst, &params, argc, argv);
 	}
 	else if (inst.use_heuristics){
-		heuristics_multithread(&inst, &params, argc, argv, t1);
+		heuristics_multiparams(&inst, &params, argc, argv, t1);
 	}
 
 
@@ -127,7 +128,7 @@ void read_input(instance *inst)
     
         fclose(fp);  
     } else {
-
+        inst->integer_costs = false;
 		inst->xcoord = malloc(inst->nnodes * sizeof(double));  
         inst->ycoord = malloc(inst->nnodes * sizeof(double));  
         strncpy(inst->input_file, "rand", 1000);  
@@ -159,7 +160,7 @@ void parse_command_line(int argc, char **argv, instance *inst,
 	inst->ycoord = NULL;
 	inst->distances = NULL;
 	inst->best_sol = NULL;
-	inst->integer_costs = 0;
+	inst->integer_costs = true;
 	inst->max_coord = 10000.0; 
 	int got_input_file = 0;
 
@@ -237,7 +238,7 @@ void parse_command_line(int argc, char **argv, instance *inst,
 
 
 // Function to start calculations of heuristics
-void heuristics_multithread(instance *inst, ConfigParams *params, int argc, char **argv, double t1) {
+void heuristics_multiparams(instance *inst, ConfigParams *params, int argc, char **argv, double t1) {
     int max_threads = sysconf(_SC_NPROCESSORS_ONLN) -2;
     if (max_threads < 1) max_threads = 1;
 
@@ -342,3 +343,26 @@ void heuristics_multithread(instance *inst, ConfigParams *params, int argc, char
     }
 }
 
+// Function to run Cplex on multiple instances
+void cpx_multiparams(instance *inst, ConfigParams *params, int argc, char **argv) {
+    for (int i = 0; i <= params->sequential_seed; i++) {
+        instance inst_copy;
+        parse_command_line(argc, argv, &inst_copy, params);
+        inst_copy.seed = inst->seed + i;
+        read_input(&inst_copy);
+        calculate_distances(&inst_copy);
+        double t_start = second();
+        TSPopt(&inst_copy, params);
+        double t_end = second();
+        double time_needed = t_end - t_start;
+        if (VERBOSE >= 1) {
+            printf("Cplex calculations terminated in %lf sec.s\n", t_end - t_start);
+        }
+        FILE *csv_file = fopen("../data/cpx_times.csv", "a");
+        fprintf(csv_file, "cpx_%i_%i_%i,num_nodes_%d_seed_%d_time_limit_%.2f,%.2f\n",
+            params->use_benders ? 0 : params->use_bc ? 1 : 2, params->warmstart ? 1 : 0, params->posting ? 1 : 0,
+            inst->nnodes, inst_copy.seed, inst->time_limit, time_needed);
+		fclose(csv_file);
+        free_instance(&inst_copy, false);
+    }
+}
