@@ -72,18 +72,22 @@ int TSPopt(instance *inst, ConfigParams *params) {
 
     double start_time = 0.0;
     CPXgettime(env, &start_time);
+    printf("time limit: %f\n", start_time);
 
     if (params->warmstart) {
-        warmstart(env, lp, inst);
+        warmstart(env, lp, inst, start_time);
     }
 
     if (params->use_bc) {
-        printf("Branch and cut algorithm selected.\n");
         branch_and_cut(inst, env, lp, start_time, params);
     }
 
     if (params->use_benders) {
         benders_loop(inst, env, lp, start_time);
+    }
+
+    if (params->use_hardfixing) {
+        hard_fixing(inst, env, lp, start_time, params);
     }
 
     // // Print the solution details if verbose
@@ -193,9 +197,10 @@ void benders_loop(instance *inst, CPXENVptr env, CPXLPptr lp, double start_time)
     build_sol(xstar, inst, succ, comp, &ncomp);
 
     while (ncomp > 1) {
-        double end_time = 0.0;
-        CPXgettime(env, &end_time);
-        double elapsed_time = end_time - start_time;
+        double time_now = 0.0;
+        CPXgettime(env, &time_now);
+        double elapsed_time = time_now - start_time;
+        CPXsetdblparam(env, CPX_PARAM_TILIM, inst->time_limit - elapsed_time);
 
         printf("Subtours detected: %d components. Adding SEC constraints...\n", ncomp);
 
@@ -211,7 +216,7 @@ void benders_loop(instance *inst, CPXENVptr env, CPXLPptr lp, double start_time)
         build_sol(xstar, inst, succ, comp, &ncomp);
 
         if (elapsed_time >= inst->time_limit) {
-            printf("Time limit exceeded. Initiating patching process...\n");
+            printf("Time limit exceeded. Proceding with patching...\n");
             patch_solution(xstar, inst);
             break;
         }
@@ -318,12 +323,11 @@ void patch_solution(double *xstar, instance *inst) {
         return;
     }
 
-    if (VERBOSE >= 50) {
+    if (VERBOSE >= 30) {
         printf("Patching needed. Components found: %d\n", ncomp);
     }
 
     while (ncomp > 1) {
-
         double best_cost = DBL_MAX;
         int best_i = -1, best_j = -1;
         int succ_i = -1, succ_j = -1;
@@ -376,7 +380,7 @@ void patch_solution(double *xstar, instance *inst) {
     free(comp);
 }
 
-void warmstart(CPXENVptr env, CPXLPptr lp, instance *inst) {
+void warmstart(CPXENVptr env, CPXLPptr lp, instance *inst, double start_time) {
 
         nearest_neighbor(inst, 0, true);
         if (VERBOSE >= 30) printf("Best tour cost for warm start after nearest neighbor: %lf\n", inst->best_sol->tour_cost);
@@ -388,7 +392,7 @@ void warmstart(CPXENVptr env, CPXLPptr lp, instance *inst) {
         double learning_rate = 0.001;
         int max_jumps = 5;
         if (VERBOSE >= 30) printf("Starting Variable Neighborhood Search for warm start...\n");
-        variable_neighborhood_search(inst->best_sol, fmin(time_limit / 10, 5), inst, learning_rate, max_jumps);
+        variable_neighborhood_search(inst->best_sol, (inst->time_limit / 10), inst, learning_rate, max_jumps);
     
         double *mip_start = (double *)calloc(inst->ncols, sizeof(double));
         if (mip_start == NULL) print_error("Memory allocation failed in warm start");
@@ -417,8 +421,12 @@ void warmstart(CPXENVptr env, CPXLPptr lp, instance *inst) {
         free(indices);
         free(values);
         free(mip_start);
-        if (start_status) print_error("CPXaddmipstarts() error"); 
+        if (start_status) print_error("CPXaddmipstarts() error");
 
+        double time_now = 0.0;
+        CPXgettime(env, &time_now);
+        double elapsed_time = time_now - start_time;
+        CPXsetdblparam(env, CPX_PARAM_TILIM, inst->time_limit - elapsed_time);
 }
 
 void convert_succ_to_tour(int *succ, int nnodes, double *tour) {
@@ -461,4 +469,62 @@ void branch_and_cut(instance *inst, CPXENVptr env, CPXLPptr lp, double start_tim
     if (CPXmipopt(env, lp)) print_error("CPXmipopt() error in branch_and_cut");
 
     free(data);
+}
+
+void hard_fixing(instance *inst, CPXENVptr env, CPXLPptr lp, double start_time, ConfigParams *params) {
+
+    //In function mip starts
+    nearest_neighbor(inst, 0, true);
+    if (VERBOSE >= 30) printf("Best tour cost for warm start after nearest neighbor: %lf\n", inst->best_sol->tour_cost);
+
+    double time_limit;
+    if (CPXgetdblparam(env, CPX_PARAM_TILIM, &time_limit)) {
+        print_error("CPXgetdblparam() error in warm start");
+    }
+    double learning_rate = 0.001;
+    int max_jumps = 5;
+    if (VERBOSE >= 30) printf("Starting Variable Neighborhood Search for warm start...\n");
+    variable_neighborhood_search(inst->best_sol, (inst->time_limit / 10), inst, learning_rate, max_jumps);
+
+    double *mip_start = (double *)calloc(inst->ncols, sizeof(double));
+    if (mip_start == NULL) print_error("Memory allocation failed in warm start");
+
+    for (int i = 0; i < inst->nnodes - 1; i++) {
+        int node_i = (int)(inst->best_sol->tour[i]) - 1;
+        int node_j = (int)(inst->best_sol->tour[i + 1]) - 1;
+        mip_start[xpos(node_i, node_j, inst)] = 1.0;
+    }
+    mip_start[xpos((int)(inst->best_sol->tour[inst->nnodes - 1]) - 1, (int)(inst->best_sol->tour[0]) - 1, inst)] = 1.0;
+
+    int effort_level = CPX_MIPSTART_AUTO;
+    int beg = 0;
+    int *indices = (int *)malloc(inst->ncols * sizeof(int));
+    if (indices == NULL) print_error("Memory allocation failed for indices in warm start");
+
+    double *values = (double *)malloc(inst->ncols * sizeof(double));
+    if (values == NULL) print_error("Memory allocation failed for values in warm start");
+
+    for (int i = 0; i < inst->ncols; i++) {
+        indices[i] = i;
+        values[i] = mip_start[i];
+    }
+
+    int start_status = CPXaddmipstarts(env, lp, 1, inst->ncols, &beg, indices, values, &effort_level, NULL);
+    free(indices);
+    free(values);
+    free(mip_start);
+    if (start_status) print_error("CPXaddmipstarts() error");
+
+    double time_now = 0.0;
+    CPXgettime(env, &time_now);
+    double time_remaining = inst->time_limit - (time_now - start_time);
+    double max_time_for_run = time_remaining / params->hf_num_of_run;
+
+
+    while (time_remaining > 0) {
+        CPXsetdblparam(env, CPX_PARAM_TILIM, fmin(max_time_for_run, time_remaining));
+        for (int i=0; i < inst->ncols; i++) {
+
+        }
+    }
 }

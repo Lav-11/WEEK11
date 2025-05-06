@@ -108,7 +108,7 @@ def main():
         plt.plot(ratio[:, j], y, **options)
     
     # Adjust the x-axis to zoom into the range of interest
-    plt.axis([1, 3, 0, 1])
+    plt.axis([1, opt.maxratio, 0, 1])
     
     # Add a legend to the plot
     plt.legend(loc='lower right', fontsize=10)  # Improve the size of the legend

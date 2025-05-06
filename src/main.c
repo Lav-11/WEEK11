@@ -181,6 +181,12 @@ void parse_command_line(int argc, char **argv, instance *inst,
     params->posting = true;
     } else if (strcmp(argv[i], "-fractional") == 0) {
     params->fractional = true;
+    } else if (strcmp(argv[i], "-use_hardfixing") == 0) {
+    params->use_hardfixing = true;
+    params->hf_prob_lower_bound = atof(argv[++i]);
+    params->hf_prob_higher_bound = atof(argv[++i]);
+    params->hf_prob_delta = atof(argv[++i]);
+    params->hf_num_of_run = atof(argv[++i]);
     } else if (strcmp(argv[i], "-use_heu") == 0) {
 	inst->use_heuristics = true;
 	} else if (strcmp(argv[i], "-seed") == 0 && i + 1 < argc) {

@@ -9,6 +9,7 @@ typedef struct {
 	int sequential_seed;
 
 
+	//HEURISTICS
 	bool use_tabu_search;
 
     double min_tenure_dimension_lower_bound;
@@ -29,11 +30,21 @@ typedef struct {
 	int max_jumps_higher_bound;
 	int max_jumps_delta;
 
-	bool use_benders;
-	bool use_bc;
+
+	//CPLEX
 	bool warmstart;
 	bool posting;
+
+	bool use_benders;
+
+	bool use_bc;
 	bool fractional;
+
+	bool use_hardfixing;
+	double hf_prob_lower_bound;
+	double hf_prob_higher_bound;
+	double hf_prob_delta;
+	int hf_num_of_run;
 
 } ConfigParams;
 

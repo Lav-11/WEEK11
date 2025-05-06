@@ -39,12 +39,15 @@ CPXCALLBACKCONTEXTptr context, int contextid);
 void patch_solution(double *xstar, instance *inst);
 
 // warm start function
-void warmstart(CPXENVptr env, CPXLPptr lp, instance *inst);
+void warmstart(CPXENVptr env, CPXLPptr lp, instance *inst, double start_time);
 
-// convert successor array to tour
+// convert successor's array to tour
 void convert_succ_to_tour(int *succ, int nnodes, double *tour);
 
 // Branch and cut function
 void branch_and_cut(instance *inst, CPXENVptr env, CPXLPptr lp, double start_time, ConfigParams *params);
+
+// Hard Fixing function
+void hard_fixing(instance *inst, CPXENVptr env, CPXLPptr lp, double start_time, ConfigParams *params);
 
 #endif // CPX_UTILS_H
