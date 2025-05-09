@@ -472,8 +472,7 @@ void branch_and_cut(instance *inst, CPXENVptr env, CPXLPptr lp, double start_tim
 }
 
 void hard_fixing(instance *inst, CPXENVptr env, CPXLPptr lp, double start_time, ConfigParams *params) {
-
-    //In function mip starts
+    // Initialization with nearest neighbor and Variable Neighborhood Search
     nearest_neighbor(inst, 0, true);
     if (VERBOSE >= 30) printf("Best tour cost for warm start after nearest neighbor: %lf\n", inst->best_sol->tour_cost);
 
@@ -484,7 +483,7 @@ void hard_fixing(instance *inst, CPXENVptr env, CPXLPptr lp, double start_time, 
     double learning_rate = 0.001;
     int max_jumps = 5;
     if (VERBOSE >= 30) printf("Starting Variable Neighborhood Search for warm start...\n");
-    variable_neighborhood_search(inst->best_sol, (inst->time_limit / 10), inst, learning_rate, max_jumps);
+    variable_neighborhood_search(inst->best_sol, (inst->time_limit / 5), inst, learning_rate, max_jumps);
 
     double *mip_start = (double *)calloc(inst->ncols, sizeof(double));
     if (mip_start == NULL) print_error("Memory allocation failed in warm start");
@@ -520,11 +519,86 @@ void hard_fixing(instance *inst, CPXENVptr env, CPXLPptr lp, double start_time, 
     double time_remaining = inst->time_limit - (time_now - start_time);
     double max_time_for_run = time_remaining / params->hf_num_of_run;
 
+    // Array to keep track of modified variables
+    int *modified_indices = (int *)malloc(inst->ncols * sizeof(int));
+    if (modified_indices == NULL) print_error("Memory allocation failed for modified_indices");
+    int modified_count = 0;
 
-    while (time_remaining > 0) {
-        CPXsetdblparam(env, CPX_PARAM_TILIM, fmin(max_time_for_run, time_remaining));
-        for (int i=0; i < inst->ncols; i++) {
+    // Build the initial solution from inst->best_sol
+    double *xstar = (double *)calloc(inst->ncols, sizeof(double));
+    if (xstar == NULL) print_error("Memory allocation failed for xstar in hard fixing");
 
-        }
+    for (int i = 0; i < inst->nnodes - 1; i++) {
+        int node_i = (int)(inst->best_sol->tour[i]) - 1;
+        int node_j = (int)(inst->best_sol->tour[i + 1]) - 1;
+        xstar[xpos(node_i, node_j, inst)] = 1.0;
     }
+    xstar[xpos((int)(inst->best_sol->tour[inst->nnodes - 1]) - 1, (int)(inst->best_sol->tour[0]) - 1, inst)] = 1.0;
+
+    // Main hard fixing loop
+    while (time_remaining > 0) {
+        // Set the time limit for this iteration (1/10 of the remaining time)
+        double iteration_time_limit = fmin(max_time_for_run, time_remaining / 5.0);
+        CPXsetdblparam(env, CPX_PARAM_TILIM, iteration_time_limit);
+
+        // Fix the bounds of variables present in the initial solution
+        for (int i = 0; i < inst->ncols; i++) {
+            if (xstar[i] > 0.5 && (rand() / (double)RAND_MAX) < 0.5) { // Only active edges with 50% probability
+                double fixed_value = 1.0;
+                CPXchgbds(env, lp, 1, &i, "L", &fixed_value); // Fix the lower bound to 1
+                CPXchgbds(env, lp, 1, &i, "U", &fixed_value); // Fix the upper bound to 1
+                modified_indices[modified_count++] = i; // Store the index of the modified variable
+            }
+        }
+
+        // Solve the model with fixed bounds
+        if (CPXmipopt(env, lp)) {
+            print_error("CPXmipopt() error during hard fixing");
+        }
+
+        // Retrieve and print the incumbent value
+        double objval;
+        int solstat = CPXgetstat(env, lp);
+        if (solstat == CPXMIP_OPTIMAL || solstat == CPXMIP_FEASIBLE || solstat == CPXMIP_TIME_LIM_FEAS) {
+            if (CPXgetobjval(env, lp, &objval)) {
+                print_error("CPXgetobjval() error during hard fixing");
+            }
+            printf("Incumbent value after iteration: %f\n", objval);
+
+            // Retrieve the integer solution
+            if (CPXgetx(env, lp, xstar, 0, inst->ncols - 1)) {
+                print_error("CPXgetx() error: Unable to retrieve solution");
+            } else {
+                printf("Solution retrieved successfully.\n");
+                for (int i = 0; i < inst->nnodes; i++) {
+                    for (int j = i + 1; j < inst->nnodes; j++) {
+                        int index = xpos(i, j, inst);
+                        /* if (xstar[index] > 0.5) {
+                            printf("Edge (%d, %d) = %f\n", i + 1, j + 1, xstar[index]);
+                        } */
+                    }
+                }
+            }
+        } else {
+            printf("No feasible solution found in this iteration. Status: %d\n", solstat);
+        }
+
+        // Reset the bounds of modified variables
+        for (int j = 0; j < modified_count; j++) {
+            int var_index = modified_indices[j];
+            double lb = 0.0;
+            double ub = 1.0;
+            CPXchgbds(env, lp, 1, &var_index, "L", &lb); // Restore the lower bound
+            CPXchgbds(env, lp, 1, &var_index, "U", &ub); // Restore the upper bound
+        }
+        modified_count = 0; // Reset the counter for the next iteration
+
+        // Update the remaining time
+        CPXgettime(env, &time_now);
+        time_remaining = inst->time_limit - (time_now - start_time);
+    }
+
+    // Free memory
+    free(modified_indices);
+    free(xstar);
 }

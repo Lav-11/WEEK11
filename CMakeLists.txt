@@ -1,24 +1,21 @@
 cmake_minimum_required(VERSION 3.20)
 project(parser VERSION 1.0)
+set(CMAKE_OSX_ARCHITECTURES "arm64")
 
-# Impostazione del percorso di CPLEX
-set(CPLEXDIR "/opt/ibm/ILOG/CPLEX_Studio2212/cplex")
+# Percorso di CPLEX
+set(CPLEXDIR "/Applications/CPLEX_Studio2211/cplex")
 
-# Verifica che CPLEX esista
-if (NOT EXISTS "${CPLEXDIR}")
-    message(FATAL_ERROR "Il percorso a CPLEX non è valido: ${CPLEXDIR}")
-endif()
+# Include directory (per permettere a CMake di trovare cplex.h)
+include_directories("${CPLEXDIR}/include" "${CPLEXDIR}/include/ilcplex")
 
-# Include directory
-include_directories("${CPLEXDIR}/include")
-
-# Aggiungi la directory delle librerie (statiche o condivise)
-link_directories("${CPLEXDIR}/lib/x86-64_linux/static_pic")  # Usa "shared" se preferisci librerie dinamiche
+# Flags di compilazione e linking
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -I${CPLEXDIR}/include -I${CPLEXDIR}/include/ilcplex")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L${CPLEXDIR}/lib/arm64_osx/static_pic -lcplex -lpthread -ldl")
 
 # Crea l'eseguibile
 add_executable(parser src/main.c src/tsp_utils.c src/chrono.c src/heuristics.c src/solver.c src/callback.c src/cpx_utils.c)
 
-# Aggiungi il link alle librerie di CPLEX (statiche o dinamiche)
+# Link a CPLEX
 target_link_libraries(parser 
     cplex
     libcplex.a  
@@ -27,7 +24,5 @@ target_link_libraries(parser
     m
 )
 
-# Se usi librerie dinamiche (shared), puoi aggiungere:
-# target_link_libraries(parser PRIVATE "${CPLEXDIR}/lib/x86-64_linux/shared/libcplex.so")
 
 include(CPack)

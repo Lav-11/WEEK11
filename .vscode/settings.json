@@ -1,18 +1,11 @@
 {
-    "configurations": [
-        {
-            "name": "Linux",
-            "includePath": [
-                "${workspaceFolder}/**",
-                "/usr/include",
-                "/usr/local/include"
-            ],
-            "defines": [],
-            "compilerPath": "/usr/bin/gcc",
-            "cStandard": "c11",
-            "cppStandard": "c++17",
-            "intelliSenseMode": "linux-gcc-x64"
-        }
-    ],
-    "version": 4
+    "files.associations": {
+        "cpx_utils.h": "c",
+        "cplex.h": "c",
+        "callback.h": "c",
+        "__tree": "c",
+        "bitset": "c",
+        "set": "c",
+        "format": "c"
+    }
 }
