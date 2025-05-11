@@ -72,7 +72,10 @@ int TSPopt(instance *inst, ConfigParams *params) {
 
     double start_time = 0.0;
     CPXgettime(env, &start_time);
-    printf("time limit: %f\n", start_time);
+    
+    double time_limit = 0.0;
+    CPXgetdblparam(env, CPX_PARAM_TILIM, &time_limit);
+    printf("Time limit: %f seconds\n", time_limit);
 
     if (params->warmstart) {
         warmstart(env, lp, inst, start_time);
@@ -472,59 +475,32 @@ void branch_and_cut(instance *inst, CPXENVptr env, CPXLPptr lp, double start_tim
 }
 
 void hard_fixing(instance *inst, CPXENVptr env, CPXLPptr lp, double start_time, ConfigParams *params) {
-    // Initialization with nearest neighbor and Variable Neighborhood Search
+    // Initialization with Nearest Neighbor
     nearest_neighbor(inst, 0, true);
-    if (VERBOSE >= 30) printf("Best tour cost for warm start after nearest neighbor: %lf\n", inst->best_sol->tour_cost);
-
-    double time_limit;
-    if (CPXgetdblparam(env, CPX_PARAM_TILIM, &time_limit)) {
-        print_error("CPXgetdblparam() error in warm start");
-    }
-    double learning_rate = 0.001;
-    int max_jumps = 5;
-    if (VERBOSE >= 30) printf("Starting Variable Neighborhood Search for warm start...\n");
-    variable_neighborhood_search(inst->best_sol, (inst->time_limit / 5), inst, learning_rate, max_jumps);
-
-    double *mip_start = (double *)calloc(inst->ncols, sizeof(double));
-    if (mip_start == NULL) print_error("Memory allocation failed in warm start");
-
-    for (int i = 0; i < inst->nnodes - 1; i++) {
-        int node_i = (int)(inst->best_sol->tour[i]) - 1;
-        int node_j = (int)(inst->best_sol->tour[i + 1]) - 1;
-        mip_start[xpos(node_i, node_j, inst)] = 1.0;
-    }
-    mip_start[xpos((int)(inst->best_sol->tour[inst->nnodes - 1]) - 1, (int)(inst->best_sol->tour[0]) - 1, inst)] = 1.0;
-
-    int effort_level = CPX_MIPSTART_AUTO;
-    int beg = 0;
-    int *indices = (int *)malloc(inst->ncols * sizeof(int));
-    if (indices == NULL) print_error("Memory allocation failed for indices in warm start");
-
-    double *values = (double *)malloc(inst->ncols * sizeof(double));
-    if (values == NULL) print_error("Memory allocation failed for values in warm start");
-
-    for (int i = 0; i < inst->ncols; i++) {
-        indices[i] = i;
-        values[i] = mip_start[i];
+    if (VERBOSE >= 30) {
+        printf("Best tour cost after Nearest Neighbor: %lf\n", inst->best_sol->tour_cost);
     }
 
-    int start_status = CPXaddmipstarts(env, lp, 1, inst->ncols, &beg, indices, values, &effort_level, NULL);
-    free(indices);
-    free(values);
-    free(mip_start);
-    if (start_status) print_error("CPXaddmipstarts() error");
-
+    // Allocate time for Variable Neighborhood Search (VNS)
     double time_now = 0.0;
     CPXgettime(env, &time_now);
     double time_remaining = inst->time_limit - (time_now - start_time);
-    double max_time_for_run = time_remaining / params->hf_num_of_run;
 
-    // Array to keep track of modified variables
-    int *modified_indices = (int *)malloc(inst->ncols * sizeof(int));
-    if (modified_indices == NULL) print_error("Memory allocation failed for modified_indices");
-    int modified_count = 0;
+    double vns_time_limit = time_remaining * 0.1; // Use 10% of the total time for VNS
+    double hard_fixing_time_limit = time_remaining - vns_time_limit; // Remaining time for Hard Fixing
 
-    // Build the initial solution from inst->best_sol
+    // Execute Variable Neighborhood Search
+    if (VERBOSE >= 30) printf("Starting Variable Neighborhood Search for warm start...\n");
+    double learning_rate = 0.001;
+    int max_jumps = 5;
+    variable_neighborhood_search(inst->best_sol, vns_time_limit, inst, learning_rate, max_jumps);
+
+    // Print the cost of the solution after VNS
+    if (VERBOSE >= 30) {
+        printf("Best tour cost after Variable Neighborhood Search: %lf\n", inst->best_sol->tour_cost);
+    }
+
+    // Prepare for Hard Fixing
     double *xstar = (double *)calloc(inst->ncols, sizeof(double));
     if (xstar == NULL) print_error("Memory allocation failed for xstar in hard fixing");
 
@@ -535,28 +511,35 @@ void hard_fixing(instance *inst, CPXENVptr env, CPXLPptr lp, double start_time, 
     }
     xstar[xpos((int)(inst->best_sol->tour[inst->nnodes - 1]) - 1, (int)(inst->best_sol->tour[0]) - 1, inst)] = 1.0;
 
-    // Main hard fixing loop
+    CPXgettime(env, &time_now);
+    time_remaining = hard_fixing_time_limit - (time_now - start_time);
+
+    double max_time_for_run = time_remaining / params->hf_num_of_run;
+    double current_prob = params->hf_prob_lower_bound;
+
+    int *modified_indices = (int *)malloc(inst->ncols * sizeof(int));
+    if (modified_indices == NULL) print_error("Memory allocation failed for modified_indices");
+    int modified_count = 0;
+
+    // Hard Fixing Loop
     while (time_remaining > 0) {
-        // Set the time limit for this iteration (1/10 of the remaining time)
-        double iteration_time_limit = fmin(max_time_for_run, time_remaining / 5.0);
+        double iteration_time_limit = fmin(max_time_for_run, time_remaining / params->hf_num_of_run);
         CPXsetdblparam(env, CPX_PARAM_TILIM, iteration_time_limit);
 
-        // Fix the bounds of variables present in the initial solution
         for (int i = 0; i < inst->ncols; i++) {
-            if (xstar[i] > 0.5 && (rand() / (double)RAND_MAX) < 0.5) { // Only active edges with 50% probability
+            double random_value = rand() / (double)RAND_MAX;
+            if (xstar[i] > 0.5 && random_value < current_prob) {
                 double fixed_value = 1.0;
-                CPXchgbds(env, lp, 1, &i, "L", &fixed_value); // Fix the lower bound to 1
-                CPXchgbds(env, lp, 1, &i, "U", &fixed_value); // Fix the upper bound to 1
-                modified_indices[modified_count++] = i; // Store the index of the modified variable
+                CPXchgbds(env, lp, 1, &i, "L", &fixed_value);
+                CPXchgbds(env, lp, 1, &i, "U", &fixed_value);
+                modified_indices[modified_count++] = i;
             }
         }
 
-        // Solve the model with fixed bounds
         if (CPXmipopt(env, lp)) {
             print_error("CPXmipopt() error during hard fixing");
         }
 
-        // Retrieve and print the incumbent value
         double objval;
         int solstat = CPXgetstat(env, lp);
         if (solstat == CPXMIP_OPTIMAL || solstat == CPXMIP_FEASIBLE || solstat == CPXMIP_TIME_LIM_FEAS) {
@@ -565,40 +548,29 @@ void hard_fixing(instance *inst, CPXENVptr env, CPXLPptr lp, double start_time, 
             }
             printf("Incumbent value after iteration: %f\n", objval);
 
-            // Retrieve the integer solution
             if (CPXgetx(env, lp, xstar, 0, inst->ncols - 1)) {
                 print_error("CPXgetx() error: Unable to retrieve solution");
-            } else {
-                printf("Solution retrieved successfully.\n");
-                for (int i = 0; i < inst->nnodes; i++) {
-                    for (int j = i + 1; j < inst->nnodes; j++) {
-                        int index = xpos(i, j, inst);
-                        /* if (xstar[index] > 0.5) {
-                            printf("Edge (%d, %d) = %f\n", i + 1, j + 1, xstar[index]);
-                        } */
-                    }
-                }
             }
         } else {
             printf("No feasible solution found in this iteration. Status: %d\n", solstat);
         }
 
-        // Reset the bounds of modified variables
         for (int j = 0; j < modified_count; j++) {
             int var_index = modified_indices[j];
             double lb = 0.0;
             double ub = 1.0;
-            CPXchgbds(env, lp, 1, &var_index, "L", &lb); // Restore the lower bound
-            CPXchgbds(env, lp, 1, &var_index, "U", &ub); // Restore the upper bound
+            CPXchgbds(env, lp, 1, &var_index, "L", &lb);
+            CPXchgbds(env, lp, 1, &var_index, "U", &ub);
         }
-        modified_count = 0; // Reset the counter for the next iteration
+        modified_count = 0;
 
-        // Update the remaining time
         CPXgettime(env, &time_now);
-        time_remaining = inst->time_limit - (time_now - start_time);
+        time_remaining = hard_fixing_time_limit - (time_now - start_time);
+
+        // Update the probability dynamically
+        current_prob = fmin(params->hf_prob_higher_bound, current_prob + params->hf_prob_delta);
     }
 
-    // Free memory
     free(modified_indices);
     free(xstar);
 }
